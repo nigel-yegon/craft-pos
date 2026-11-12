@@ -42,6 +42,7 @@ class Products extends Table {
 
   TextColumn get unit => text().withDefault(const Constant('pcs'))();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  TextColumn get imagePath => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
@@ -112,6 +113,40 @@ class HeldOrders extends Table {
   TextColumn get cartJson => text()();
   IntColumn get totalAmountMinor => integer().withDefault(const Constant(0))();
   TextColumn get note => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+class Expenses extends Table {
+  TextColumn get id => text()();
+  TextColumn get businessId =>
+      text().references(Businesses, #id, onDelete: KeyAction.cascade)();
+  TextColumn get name => text()();                         // e.g. "Rent", "Electricity"
+  IntColumn get amountMinor => integer().withDefault(const Constant(0))();
+  TextColumn get category => text().withDefault(const Constant('general'))(); // rent, salary, utility, other
+  TextColumn get status => text().withDefault(const Constant('paid'))();      // paid, pending
+  BoolColumn get isRecurring => boolean().withDefault(const Constant(false))();
+  TextColumn get recurringPeriod => text().nullable()();   // daily, weekly, monthly, yearly
+  DateTimeColumn get dueDate => dateTime().nullable()();
+  DateTimeColumn get paidAt => dateTime().nullable()();
+  TextColumn get note => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class RecurringExpenses extends Table {
+  TextColumn get id => text()();
+  TextColumn get businessId =>
+      text().references(Businesses, #id, onDelete: KeyAction.cascade)();
+  TextColumn get name => text()();
+  IntColumn get amountMinor => integer().withDefault(const Constant(0))();
+  TextColumn get category => text().withDefault(const Constant('general'))();
+  TextColumn get period => text().withDefault(const Constant('monthly'))(); // daily, weekly, monthly, yearly
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get lastChargedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override

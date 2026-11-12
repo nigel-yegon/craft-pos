@@ -2,8 +2,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/database/app_database.dart';
 import '../../core/providers/auth_provider.dart';
-import '../../core/providers/business_provider.dart'; // <-- ADDED
+import '../../core/providers/business_provider.dart';
 import '../../core/providers/category_provider.dart';
+import '../../core/providers/expense_provider.dart';
 import '../../core/providers/product_provider.dart';
 import '../../core/providers/report_provider.dart';
 import '../../core/providers/sales_provider.dart';
@@ -12,10 +13,11 @@ import '../../features/business/business_setup_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/inventory/inventory_screen.dart';
 import '../../features/onboarding/splash_screens.dart';
-import '../../features/profile/profile_screen.dart'; // <-- ADDED
+import '../../features/profile/profile_screen.dart';
 import '../../features/products/products_screen.dart';
-import '../../features/sales/sales_screen.dart';
 import '../../features/reports/reports_screen.dart';
+import '../../features/sales/sales_screen.dart';
+import '../../features/settings/settings_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 
 Future<GoRouter> createAppRouter(
@@ -26,13 +28,14 @@ Future<GoRouter> createAppRouter(
   final businessId =
   businesses.isNotEmpty ? businesses.first.id : 'default-business-id';
 
-  // Initialize Providers
+  // ─── Providers ───
   final authProvider = AuthProvider(db, businessId);
   final productProvider = ProductProvider(db, businessId);
   final categoryProvider = CategoryProvider(db, businessId);
   final salesProvider = SalesProvider(db, businessId);
   final reportProvider = ReportProvider(db, businessId);
   final businessProvider = BusinessProvider(db, businessId);
+  final expenseProvider = ExpenseProvider(db, businessId);
 
   return GoRouter(
     initialLocation: initialLocation,
@@ -42,7 +45,6 @@ Future<GoRouter> createAppRouter(
       final isGoingToSplash = state.matchedLocation == '/splash';
       final isGoingToSetup = state.matchedLocation == '/setup';
 
-      // 1. If not logged in and NOT going to login/splash/setup, force login
       if (!isLoggedIn &&
           !isGoingToLogin &&
           !isGoingToSplash &&
@@ -50,7 +52,6 @@ Future<GoRouter> createAppRouter(
         return '/login';
       }
 
-      // 2. If already logged in and trying to access login/splash, go to dashboard
       if (isLoggedIn && (isGoingToLogin || isGoingToSplash)) {
         return '/dashboard';
       }
@@ -85,6 +86,11 @@ Future<GoRouter> createAppRouter(
             path: '/profile',
             builder: (context, state) =>
                 ProfileScreen(provider: businessProvider),
+          ),
+          GoRoute(
+            path: '/settings',
+            builder: (context, state) =>
+                SettingsScreen(provider: expenseProvider),
           ),
           GoRoute(
             path: '/products',

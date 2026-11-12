@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:uuid/uuid.dart';
@@ -14,6 +18,23 @@ class ProductProvider extends ChangeNotifier {
   /// Adjust stock for a product by creating a new ledger entry.
   /// [deltaMilli] is positive to add stock, negative to remove.
   /// Returns the new movement id.
+  ///
+  /// Pick and save a product image, returning the new file path.
+  Future<String?> pickAndSaveProductImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (picked == null) return null;
+
+    final docs = await getApplicationDocumentsDirectory();
+    final filename =
+        'product_${DateTime.now().millisecondsSinceEpoch}${p.extension(picked.path)}';
+    final saved = await File(picked.path).copy(p.join(docs.path, filename));
+    return saved.path;
+  }
+
   Future<String> adjustStock({
     required String productId,
     required int deltaMilli,
@@ -109,6 +130,7 @@ class ProductProvider extends ChangeNotifier {
     required int sellingPriceMinor,
     required int reorderLevelMilli,
     int? openingStockMilli,
+    String? imagePath,
   }) async {
     final productId = id ?? const Uuid().v4();
 
@@ -124,6 +146,9 @@ class ProductProvider extends ChangeNotifier {
           costPriceMinor: drift.Value(costPriceMinor),
           sellingPriceMinor: drift.Value(sellingPriceMinor),
           reorderLevelMilli: drift.Value(reorderLevelMilli),
+          imagePath: imagePath != null
+              ? drift.Value(imagePath)
+              : const drift.Value.absent(),
         ),
       );
 

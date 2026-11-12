@@ -3,6 +3,7 @@ import '../../core/database/app_database.dart';
 import '../../core/providers/category_provider.dart';
 import '../../core/providers/product_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/product_image.dart';
 import '../categories/categories_screen.dart';
 import 'product_form_screen.dart';
 
@@ -36,7 +37,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => CategoriesScreen(provider: widget.categoryProvider),
+                  builder: (_) =>
+                      CategoriesScreen(provider: widget.categoryProvider),
                 ),
               );
             },
@@ -52,7 +54,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 hintText: 'Search products by name or SKU...',
                 prefixIcon: Icon(Icons.search),
               ),
-              onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
+              onChanged: (val) =>
+                  setState(() => _searchQuery = val.toLowerCase()),
             ),
           ),
           Expanded(
@@ -74,14 +77,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
                 if (filteredProducts.isEmpty) {
                   return const Center(
-                    child: Text('No products found.', style: TextStyle(color: AppTheme.textLight)),
+                    child: Text(
+                      'No products found.',
+                      style: TextStyle(color: AppTheme.textLight),
+                    ),
                   );
                 }
 
                 return ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemCount: filteredProducts.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 8),
+                  separatorBuilder: (context, index) =>
+                  const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final p = filteredProducts[index];
                     return FutureBuilder<int>(
@@ -93,22 +101,27 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
                         return Card(
                           child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            leading: Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryGreen.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.inventory_2, color: AppTheme.primaryGreen),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            leading: ProductImage(
+                              imagePath: p.imagePath,
+                              size: 50,
                             ),
-                            title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+                            title: Text(
+                              p.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textDark,
+                              ),
+                            ),
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 4.0),
                               child: Text(
                                 'KSh ${(p.sellingPriceMinor / 100).toStringAsFixed(2)}',
-                                style: const TextStyle(color: AppTheme.primaryGreen, fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                  color: AppTheme.primaryGreen,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                             trailing: Column(
@@ -118,19 +131,31 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 Text(
                                   'Stock: $stockDouble',
                                   style: TextStyle(
-                                    color: isLow ? AppTheme.warningRed : AppTheme.textDark,
+                                    color: isLow
+                                        ? AppTheme.warningRed
+                                        : AppTheme.textDark,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
                                   ),
                                 ),
                                 if (isLow)
-                                  const Text('LOW STOCK', style: TextStyle(color: AppTheme.warningRed, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  const Text(
+                                    'LOW STOCK',
+                                    style: TextStyle(
+                                      color: AppTheme.warningRed,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                               ],
                             ),
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => ProductFormScreen(provider: widget.provider, product: p),
+                                builder: (_) => ProductFormScreen(
+                                  provider: widget.provider,
+                                  product: p,
+                                ),
                               ),
                             ),
                           ),

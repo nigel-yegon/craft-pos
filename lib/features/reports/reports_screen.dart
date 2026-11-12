@@ -31,6 +31,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
   String _periodLabel = 'Today';
   String _businessName = 'My Shop';
 
+  int _expensePaid = 0;
+  int _expensePending = 0;
+
   @override
   void initState() {
     super.initState();
@@ -46,7 +49,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     super.dispose();
   }
 
-  // ─── Business name from DB ────────────────────────────────────────
   Future<void> _loadBusinessName() async {
     final db = ref.read(databaseProvider);
     final biz = await db.select(db.businesses).getSingleOrNull();
@@ -96,20 +98,23 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     sales = await widget.provider.getSalesInRange(_start, _end);
     held = await widget.provider.getHeldOrders();
 
+    final expenseSummary =
+    await widget.provider.getExpenseSummary(_start, _end);
+
     if (!mounted) return;
     setState(() {
       _summary = summary;
       _trend = trend;
       _salesInRange = sales;
       _heldOrders = held;
+      _expensePaid = expenseSummary['paid'] ?? 0;
+      _expensePending = expenseSummary['pending'] ?? 0;
       _isLoading = false;
     });
   }
 
   Future<List<_SaleLine>> _loadSaleLines(String saleId) async {
-    if (_lineCache.containsKey(saleId)) {
-      return _lineCache[saleId]!;
-    }
+    if (_lineCache.containsKey(saleId)) return _lineCache[saleId]!;
 
     final items = await widget.provider.getSaleItems(saleId);
     final lines = <_SaleLine>[];
@@ -220,6 +225,10 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                   ),
                 ],
               ),
+              const SizedBox(height: 20),
+
+              // ─── Money Position ───
+              _buildMoneyPositionCard(),
               const SizedBox(height: 24),
 
               if (_heldOrders.isNotEmpty) ...[
@@ -277,7 +286,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                     child: Center(
                       child: Text(
                         'No transactions for this period',
-                        style: TextStyle(color: AppTheme.textLight),
+                        style:
+                        TextStyle(color: AppTheme.textLight),
                       ),
                     ),
                   ),
@@ -288,6 +298,82 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMoneyPositionCard() {
+    final net = (_summary['sales'] ?? 0) - _expensePaid;
+
+    return Card(
+      color: AppTheme.primaryGreen.withValues(alpha: 0.05),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Money Position',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: AppTheme.textDark,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _positionRow(
+              'Money In (Sales)',
+              _formatKsh(_summary['sales'] ?? 0),
+              Colors.green,
+            ),
+            _positionRow(
+              'Money Out (Paid)',
+              '- ${_formatKsh(_expensePaid)}',
+              Colors.red,
+            ),
+            _positionRow(
+              'Pending Expenses',
+              _formatKsh(_expensePending),
+              Colors.orange,
+              sub: true,
+            ),
+            const Divider(),
+            _positionRow(
+              'Net Position',
+              _formatKsh(net),
+              AppTheme.primaryGreen,
+              bold: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _positionRow(String label, String value, Color color,
+      {bool bold = false, bool sub = false}) {
+    return Padding(
+      padding: EdgeInsets.only(top: sub ? 2 : 8, left: sub ? 16 : 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: sub ? 12 : 13,
+              color: sub ? AppTheme.textLight : AppTheme.textDark,
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: bold ? 16 : 13,
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }

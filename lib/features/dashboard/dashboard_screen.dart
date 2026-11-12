@@ -181,6 +181,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                       ),
                       IconButton(
+                        icon: const Icon(Icons.settings, color: Colors.white),
+                        tooltip: 'Settings',
+                        onPressed: () => context.push('/settings'),
+                      ),
+                      IconButton(
                         icon: const Icon(Icons.logout, color: Colors.white),
                         tooltip: 'Logout',
                         onPressed: () {

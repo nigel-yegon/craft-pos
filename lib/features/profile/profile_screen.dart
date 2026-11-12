@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../core/database/app_database.dart';
 import '../../core/providers/business_provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -15,22 +17,13 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  late TextEditingController _nameController;
-  late TextEditingController _phoneController;
-  late TextEditingController _emailController;
-  late TextEditingController _addressController;
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _addressController = TextEditingController();
 
   bool _isSaving = false;
   bool _initialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController();
-    _phoneController = TextEditingController();
-    _emailController = TextEditingController();
-    _addressController = TextEditingController();
-  }
 
   @override
   void dispose() {
@@ -41,7 +34,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  // ⭐ FIXED: BusinessesData, not Business
   void _populateFields(BusinessesData biz) {
     if (_initialized) return;
     _nameController.text = biz.name;
@@ -81,6 +73,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: const Text('Shop Profile'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
+            onPressed: () => context.push('/settings'),
+          ),
+          IconButton(
             tooltip: 'Save',
             icon: _isSaving
                 ? const SizedBox(
@@ -93,7 +90,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-      // ⭐ FIXED: StreamBuilder<BusinessesData?>
       body: StreamBuilder<BusinessesData?>(
         stream: widget.provider.businessStream,
         builder: (context, snapshot) {
@@ -108,8 +104,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           _populateFields(biz);
 
+          final imagePath = biz.imagePath;
           final hasImage =
-              biz.imagePath != null && File(biz.imagePath!).existsSync();
+              imagePath != null && File(imagePath).existsSync();
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -117,7 +114,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               key: _formKey,
               child: Column(
                 children: [
-                  // ─── Shop Image ───
                   Center(
                     child: Stack(
                       children: [
@@ -126,7 +122,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           height: 120,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: AppTheme.primaryGreen.withValues(alpha: 0.1),
+                            color: AppTheme.primaryGreen
+                                .withValues(alpha: 0.1),
                             border: Border.all(
                               color: AppTheme.primaryGreen
                                   .withValues(alpha: 0.3),
@@ -134,7 +131,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             image: hasImage
                                 ? DecorationImage(
-                              image: FileImage(File(biz.imagePath!)),
+                              image: FileImage(File(imagePath)),
                               fit: BoxFit.cover,
                             )
                                 : null,
@@ -154,7 +151,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             onTap: _isSaving
                                 ? null
                                 : () async {
-                              await widget.provider.pickAndSaveImage();
+                              await widget.provider
+                                  .pickAndSaveImage();
                             },
                             child: Container(
                               padding: const EdgeInsets.all(8),
@@ -175,17 +173,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
 
                   const SizedBox(height: 12),
-                  Text(
+                  const Text(
                     'Tap the camera icon to change your shop photo',
                     style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textLight,
-                    ),
+                        fontSize: 12, color: AppTheme.textLight),
                   ),
 
                   const SizedBox(height: 32),
 
-                  // ─── Form Fields ───
                   TextFormField(
                     controller: _nameController,
                     textCapitalization: TextCapitalization.words,
@@ -223,7 +218,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     validator: (v) {
                       final email = v?.trim() ?? '';
                       if (email.isEmpty) return null;
-                      final valid = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                      final valid = RegExp(
+                          r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
                           .hasMatch(email);
                       return valid ? null : 'Enter a valid email';
                     },
@@ -256,18 +252,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       )
                           : const Icon(Icons.save),
-                      label: Text(_isSaving ? 'Saving...' : 'Save Changes'),
+                      label: Text(
+                          _isSaving ? 'Saving...' : 'Save Changes'),
                     ),
                   ),
 
                   const SizedBox(height: 16),
-                  Text(
+                  const Text(
                     'These details are stored locally on your device.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textLight,
-                    ),
+                        fontSize: 12, color: AppTheme.textLight),
                   ),
                 ],
               ),

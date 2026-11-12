@@ -14,6 +14,8 @@ part 'app_database.g.dart';
     StockMovements,
     Users,
     HeldOrders,
+    Expenses,
+    RecurringExpenses,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -29,19 +31,20 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async => await m.createAll(),
     onUpgrade: (m, from, to) async {
-      if (from < 2) {
-        await m.createTable(stockMovements);
-      }
-      if (from < 3) {
-        await m.addColumn(businesses, businesses.imagePath);
-      }
+      if (from < 2) await m.createTable(stockMovements);
+      if (from < 3) await m.addColumn(businesses, businesses.imagePath);
       if (from < 4) await m.createTable(heldOrders);
+      if (from < 5) await m.addColumn(products, products.imagePath);
+      if (from < 6) {
+        await m.createTable(expenses);
+        await m.createTable(recurringExpenses);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

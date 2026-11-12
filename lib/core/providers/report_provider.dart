@@ -154,6 +154,43 @@ class ReportProvider extends ChangeNotifier {
       ..where((p) => p.id.equals(productId)))
         .getSingleOrNull();
   }
+  Future<Map<String, int>> getExpenseSummary(DateTime start, DateTime end) async {
+    final paidQuery = db.customSelect(
+      '''
+    SELECT COALESCE(SUM(amount_minor), 0) AS total
+    FROM expenses
+    WHERE business_id = ? AND status = 'paid'
+    AND created_at >= ? AND created_at < ?
+    ''',
+      variables: [
+        Variable.withString(businessId),
+        Variable.withDateTime(start),
+        Variable.withDateTime(end),
+      ],
+      readsFrom: {db.expenses},
+    );
+    final paidRow = await paidQuery.getSingleOrNull();
+    final paid = paidRow?.read<int?>('total') ?? 0;
+
+    final pendingQuery = db.customSelect(
+      '''
+    SELECT COALESCE(SUM(amount_minor), 0) AS total
+    FROM expenses
+    WHERE business_id = ? AND status = 'pending'
+    AND created_at >= ? AND created_at < ?
+    ''',
+      variables: [
+        Variable.withString(businessId),
+        Variable.withDateTime(start),
+        Variable.withDateTime(end),
+      ],
+      readsFrom: {db.expenses},
+    );
+    final pendingRow = await pendingQuery.getSingleOrNull();
+    final pending = pendingRow?.read<int?>('total') ?? 0;
+
+    return {'paid': paid, 'pending': pending};
+  }
   // ═══════════════════════════════════════════════════════════════════
   // HELD ORDERS (for the "awaiting payment" alert)
   // ═══════════════════════════════════════════════════════════════════
