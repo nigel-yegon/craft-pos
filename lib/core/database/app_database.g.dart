@@ -56,6 +56,17 @@ class $BusinessesTable extends Businesses
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _imagePathMeta = const VerificationMeta(
+    'imagePath',
+  );
+  @override
+  late final GeneratedColumn<String> imagePath = GeneratedColumn<String>(
+    'image_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _currencyMeta = const VerificationMeta(
     'currency',
   );
@@ -87,6 +98,7 @@ class $BusinessesTable extends Businesses
     phone,
     email,
     address,
+    imagePath,
     currency,
     createdAt,
   ];
@@ -133,6 +145,12 @@ class $BusinessesTable extends Businesses
         address.isAcceptableOrUnknown(data['address']!, _addressMeta),
       );
     }
+    if (data.containsKey('image_path')) {
+      context.handle(
+        _imagePathMeta,
+        imagePath.isAcceptableOrUnknown(data['image_path']!, _imagePathMeta),
+      );
+    }
     if (data.containsKey('currency')) {
       context.handle(
         _currencyMeta,
@@ -176,6 +194,10 @@ class $BusinessesTable extends Businesses
         DriftSqlType.string,
         data['${effectivePrefix}address'],
       ),
+      imagePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_path'],
+      ),
       currency:
           attachedDatabase.typeMapping.read(
             DriftSqlType.string,
@@ -201,6 +223,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
   final String? phone;
   final String? email;
   final String? address;
+  final String? imagePath;
   final String currency;
   final DateTime createdAt;
   const BusinessesData({
@@ -209,6 +232,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
     this.phone,
     this.email,
     this.address,
+    this.imagePath,
     required this.currency,
     required this.createdAt,
   });
@@ -225,6 +249,9 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
     }
     if (!nullToAbsent || address != null) {
       map['address'] = Variable<String>(address);
+    }
+    if (!nullToAbsent || imagePath != null) {
+      map['image_path'] = Variable<String>(imagePath);
     }
     map['currency'] = Variable<String>(currency);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -243,6 +270,10 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
           address == null && nullToAbsent
               ? const Value.absent()
               : Value(address),
+      imagePath:
+          imagePath == null && nullToAbsent
+              ? const Value.absent()
+              : Value(imagePath),
       currency: Value(currency),
       createdAt: Value(createdAt),
     );
@@ -259,6 +290,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
       phone: serializer.fromJson<String?>(json['phone']),
       email: serializer.fromJson<String?>(json['email']),
       address: serializer.fromJson<String?>(json['address']),
+      imagePath: serializer.fromJson<String?>(json['imagePath']),
       currency: serializer.fromJson<String>(json['currency']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
@@ -272,6 +304,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
       'phone': serializer.toJson<String?>(phone),
       'email': serializer.toJson<String?>(email),
       'address': serializer.toJson<String?>(address),
+      'imagePath': serializer.toJson<String?>(imagePath),
       'currency': serializer.toJson<String>(currency),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
@@ -283,6 +316,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
     Value<String?> phone = const Value.absent(),
     Value<String?> email = const Value.absent(),
     Value<String?> address = const Value.absent(),
+    Value<String?> imagePath = const Value.absent(),
     String? currency,
     DateTime? createdAt,
   }) => BusinessesData(
@@ -291,6 +325,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
     phone: phone.present ? phone.value : this.phone,
     email: email.present ? email.value : this.email,
     address: address.present ? address.value : this.address,
+    imagePath: imagePath.present ? imagePath.value : this.imagePath,
     currency: currency ?? this.currency,
     createdAt: createdAt ?? this.createdAt,
   );
@@ -301,6 +336,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
       phone: data.phone.present ? data.phone.value : this.phone,
       email: data.email.present ? data.email.value : this.email,
       address: data.address.present ? data.address.value : this.address,
+      imagePath: data.imagePath.present ? data.imagePath.value : this.imagePath,
       currency: data.currency.present ? data.currency.value : this.currency,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
@@ -314,6 +350,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
           ..write('phone: $phone, ')
           ..write('email: $email, ')
           ..write('address: $address, ')
+          ..write('imagePath: $imagePath, ')
           ..write('currency: $currency, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
@@ -321,8 +358,16 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, phone, email, address, currency, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    phone,
+    email,
+    address,
+    imagePath,
+    currency,
+    createdAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -332,6 +377,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
           other.phone == this.phone &&
           other.email == this.email &&
           other.address == this.address &&
+          other.imagePath == this.imagePath &&
           other.currency == this.currency &&
           other.createdAt == this.createdAt);
 }
@@ -342,6 +388,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
   final Value<String?> phone;
   final Value<String?> email;
   final Value<String?> address;
+  final Value<String?> imagePath;
   final Value<String> currency;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
@@ -351,6 +398,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
     this.phone = const Value.absent(),
     this.email = const Value.absent(),
     this.address = const Value.absent(),
+    this.imagePath = const Value.absent(),
     this.currency = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -361,6 +409,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
     this.phone = const Value.absent(),
     this.email = const Value.absent(),
     this.address = const Value.absent(),
+    this.imagePath = const Value.absent(),
     this.currency = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -372,6 +421,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
     Expression<String>? phone,
     Expression<String>? email,
     Expression<String>? address,
+    Expression<String>? imagePath,
     Expression<String>? currency,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
@@ -382,6 +432,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
       if (phone != null) 'phone': phone,
       if (email != null) 'email': email,
       if (address != null) 'address': address,
+      if (imagePath != null) 'image_path': imagePath,
       if (currency != null) 'currency': currency,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
@@ -394,6 +445,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
     Value<String?>? phone,
     Value<String?>? email,
     Value<String?>? address,
+    Value<String?>? imagePath,
     Value<String>? currency,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
@@ -404,6 +456,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
       phone: phone ?? this.phone,
       email: email ?? this.email,
       address: address ?? this.address,
+      imagePath: imagePath ?? this.imagePath,
       currency: currency ?? this.currency,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
@@ -428,6 +481,9 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
     if (address.present) {
       map['address'] = Variable<String>(address.value);
     }
+    if (imagePath.present) {
+      map['image_path'] = Variable<String>(imagePath.value);
+    }
     if (currency.present) {
       map['currency'] = Variable<String>(currency.value);
     }
@@ -448,6 +504,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
           ..write('phone: $phone, ')
           ..write('email: $email, ')
           ..write('address: $address, ')
+          ..write('imagePath: $imagePath, ')
           ..write('currency: $currency, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
@@ -3116,6 +3173,466 @@ class StockMovementsCompanion extends UpdateCompanion<StockMovement> {
   }
 }
 
+class $UsersTable extends Users with TableInfo<$UsersTable, User> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UsersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _businessIdMeta = const VerificationMeta(
+    'businessId',
+  );
+  @override
+  late final GeneratedColumn<String> businessId = GeneratedColumn<String>(
+    'business_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES businesses (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pinHashMeta = const VerificationMeta(
+    'pinHash',
+  );
+  @override
+  late final GeneratedColumn<String> pinHash = GeneratedColumn<String>(
+    'pin_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('owner'),
+  );
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    businessId,
+    name,
+    pinHash,
+    role,
+    isActive,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'users';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<User> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('business_id')) {
+      context.handle(
+        _businessIdMeta,
+        businessId.isAcceptableOrUnknown(data['business_id']!, _businessIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_businessIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('pin_hash')) {
+      context.handle(
+        _pinHashMeta,
+        pinHash.isAcceptableOrUnknown(data['pin_hash']!, _pinHashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pinHashMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  User map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return User(
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}id'],
+          )!,
+      businessId:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}business_id'],
+          )!,
+      name:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}name'],
+          )!,
+      pinHash:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}pin_hash'],
+          )!,
+      role:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}role'],
+          )!,
+      isActive:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.bool,
+            data['${effectivePrefix}is_active'],
+          )!,
+      createdAt:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.dateTime,
+            data['${effectivePrefix}created_at'],
+          )!,
+    );
+  }
+
+  @override
+  $UsersTable createAlias(String alias) {
+    return $UsersTable(attachedDatabase, alias);
+  }
+}
+
+class User extends DataClass implements Insertable<User> {
+  final String id;
+  final String businessId;
+  final String name;
+  final String pinHash;
+  final String role;
+  final bool isActive;
+  final DateTime createdAt;
+  const User({
+    required this.id,
+    required this.businessId,
+    required this.name,
+    required this.pinHash,
+    required this.role,
+    required this.isActive,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['business_id'] = Variable<String>(businessId);
+    map['name'] = Variable<String>(name);
+    map['pin_hash'] = Variable<String>(pinHash);
+    map['role'] = Variable<String>(role);
+    map['is_active'] = Variable<bool>(isActive);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  UsersCompanion toCompanion(bool nullToAbsent) {
+    return UsersCompanion(
+      id: Value(id),
+      businessId: Value(businessId),
+      name: Value(name),
+      pinHash: Value(pinHash),
+      role: Value(role),
+      isActive: Value(isActive),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory User.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return User(
+      id: serializer.fromJson<String>(json['id']),
+      businessId: serializer.fromJson<String>(json['businessId']),
+      name: serializer.fromJson<String>(json['name']),
+      pinHash: serializer.fromJson<String>(json['pinHash']),
+      role: serializer.fromJson<String>(json['role']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'businessId': serializer.toJson<String>(businessId),
+      'name': serializer.toJson<String>(name),
+      'pinHash': serializer.toJson<String>(pinHash),
+      'role': serializer.toJson<String>(role),
+      'isActive': serializer.toJson<bool>(isActive),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  User copyWith({
+    String? id,
+    String? businessId,
+    String? name,
+    String? pinHash,
+    String? role,
+    bool? isActive,
+    DateTime? createdAt,
+  }) => User(
+    id: id ?? this.id,
+    businessId: businessId ?? this.businessId,
+    name: name ?? this.name,
+    pinHash: pinHash ?? this.pinHash,
+    role: role ?? this.role,
+    isActive: isActive ?? this.isActive,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  User copyWithCompanion(UsersCompanion data) {
+    return User(
+      id: data.id.present ? data.id.value : this.id,
+      businessId:
+          data.businessId.present ? data.businessId.value : this.businessId,
+      name: data.name.present ? data.name.value : this.name,
+      pinHash: data.pinHash.present ? data.pinHash.value : this.pinHash,
+      role: data.role.present ? data.role.value : this.role,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('User(')
+          ..write('id: $id, ')
+          ..write('businessId: $businessId, ')
+          ..write('name: $name, ')
+          ..write('pinHash: $pinHash, ')
+          ..write('role: $role, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, businessId, name, pinHash, role, isActive, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is User &&
+          other.id == this.id &&
+          other.businessId == this.businessId &&
+          other.name == this.name &&
+          other.pinHash == this.pinHash &&
+          other.role == this.role &&
+          other.isActive == this.isActive &&
+          other.createdAt == this.createdAt);
+}
+
+class UsersCompanion extends UpdateCompanion<User> {
+  final Value<String> id;
+  final Value<String> businessId;
+  final Value<String> name;
+  final Value<String> pinHash;
+  final Value<String> role;
+  final Value<bool> isActive;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const UsersCompanion({
+    this.id = const Value.absent(),
+    this.businessId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.pinHash = const Value.absent(),
+    this.role = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  UsersCompanion.insert({
+    required String id,
+    required String businessId,
+    required String name,
+    required String pinHash,
+    this.role = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       businessId = Value(businessId),
+       name = Value(name),
+       pinHash = Value(pinHash);
+  static Insertable<User> custom({
+    Expression<String>? id,
+    Expression<String>? businessId,
+    Expression<String>? name,
+    Expression<String>? pinHash,
+    Expression<String>? role,
+    Expression<bool>? isActive,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (businessId != null) 'business_id': businessId,
+      if (name != null) 'name': name,
+      if (pinHash != null) 'pin_hash': pinHash,
+      if (role != null) 'role': role,
+      if (isActive != null) 'is_active': isActive,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  UsersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? businessId,
+    Value<String>? name,
+    Value<String>? pinHash,
+    Value<String>? role,
+    Value<bool>? isActive,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return UsersCompanion(
+      id: id ?? this.id,
+      businessId: businessId ?? this.businessId,
+      name: name ?? this.name,
+      pinHash: pinHash ?? this.pinHash,
+      role: role ?? this.role,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (businessId.present) {
+      map['business_id'] = Variable<String>(businessId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (pinHash.present) {
+      map['pin_hash'] = Variable<String>(pinHash.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UsersCompanion(')
+          ..write('id: $id, ')
+          ..write('businessId: $businessId, ')
+          ..write('name: $name, ')
+          ..write('pinHash: $pinHash, ')
+          ..write('role: $role, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3125,6 +3642,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SalesTable sales = $SalesTable(this);
   late final $SaleItemsTable saleItems = $SaleItemsTable(this);
   late final $StockMovementsTable stockMovements = $StockMovementsTable(this);
+  late final $UsersTable users = $UsersTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3136,6 +3654,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     sales,
     saleItems,
     stockMovements,
+    users,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3188,6 +3707,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       ),
       result: [TableUpdate('stock_movements', kind: UpdateKind.delete)],
     ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'businesses',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('users', kind: UpdateKind.delete)],
+    ),
   ]);
 }
 
@@ -3198,6 +3724,7 @@ typedef $$BusinessesTableCreateCompanionBuilder =
       Value<String?> phone,
       Value<String?> email,
       Value<String?> address,
+      Value<String?> imagePath,
       Value<String> currency,
       Value<DateTime> createdAt,
       Value<int> rowid,
@@ -3209,6 +3736,7 @@ typedef $$BusinessesTableUpdateCompanionBuilder =
       Value<String?> phone,
       Value<String?> email,
       Value<String?> address,
+      Value<String?> imagePath,
       Value<String> currency,
       Value<DateTime> createdAt,
       Value<int> rowid,
@@ -3291,6 +3819,25 @@ final class $$BusinessesTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$UsersTable, List<User>> _usersRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.users,
+    aliasName: 'businesses__id__users__business_id',
+  );
+
+  $$UsersTableProcessedTableManager get usersRefs {
+    final manager = $$UsersTableTableManager(
+      $_db,
+      $_db.users,
+    ).filter((f) => f.businessId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_usersRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$BusinessesTableFilterComposer
@@ -3324,6 +3871,11 @@ class $$BusinessesTableFilterComposer
 
   ColumnFilters<String> get address => $composableBuilder(
     column: $table.address,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imagePath => $composableBuilder(
+    column: $table.imagePath,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3436,6 +3988,31 @@ class $$BusinessesTableFilterComposer
     );
     return f(composer);
   }
+
+  Expression<bool> usersRefs(
+    Expression<bool> Function($$UsersTableFilterComposer f) f,
+  ) {
+    final $$UsersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.businessId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableFilterComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BusinessesTableOrderingComposer
@@ -3469,6 +4046,11 @@ class $$BusinessesTableOrderingComposer
 
   ColumnOrderings<String> get address => $composableBuilder(
     column: $table.address,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get imagePath => $composableBuilder(
+    column: $table.imagePath,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -3506,6 +4088,9 @@ class $$BusinessesTableAnnotationComposer
 
   GeneratedColumn<String> get address =>
       $composableBuilder(column: $table.address, builder: (column) => column);
+
+  GeneratedColumn<String> get imagePath =>
+      $composableBuilder(column: $table.imagePath, builder: (column) => column);
 
   GeneratedColumn<String> get currency =>
       $composableBuilder(column: $table.currency, builder: (column) => column);
@@ -3612,6 +4197,31 @@ class $$BusinessesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> usersRefs<T extends Object>(
+    Expression<T> Function($$UsersTableAnnotationComposer a) f,
+  ) {
+    final $$UsersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.businessId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BusinessesTableTableManager
@@ -3632,6 +4242,7 @@ class $$BusinessesTableTableManager
             bool productsRefs,
             bool salesRefs,
             bool stockMovementsRefs,
+            bool usersRefs,
           })
         > {
   $$BusinessesTableTableManager(_$AppDatabase db, $BusinessesTable table)
@@ -3652,6 +4263,7 @@ class $$BusinessesTableTableManager
                 Value<String?> phone = const Value.absent(),
                 Value<String?> email = const Value.absent(),
                 Value<String?> address = const Value.absent(),
+                Value<String?> imagePath = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3661,6 +4273,7 @@ class $$BusinessesTableTableManager
                 phone: phone,
                 email: email,
                 address: address,
+                imagePath: imagePath,
                 currency: currency,
                 createdAt: createdAt,
                 rowid: rowid,
@@ -3672,6 +4285,7 @@ class $$BusinessesTableTableManager
                 Value<String?> phone = const Value.absent(),
                 Value<String?> email = const Value.absent(),
                 Value<String?> address = const Value.absent(),
+                Value<String?> imagePath = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3681,6 +4295,7 @@ class $$BusinessesTableTableManager
                 phone: phone,
                 email: email,
                 address: address,
+                imagePath: imagePath,
                 currency: currency,
                 createdAt: createdAt,
                 rowid: rowid,
@@ -3700,6 +4315,7 @@ class $$BusinessesTableTableManager
             productsRefs = false,
             salesRefs = false,
             stockMovementsRefs = false,
+            usersRefs = false,
           }) {
             return PrefetchHooks(
               db: db,
@@ -3708,6 +4324,7 @@ class $$BusinessesTableTableManager
                 if (productsRefs) db.products,
                 if (salesRefs) db.sales,
                 if (stockMovementsRefs) db.stockMovements,
+                if (usersRefs) db.users,
               ],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
@@ -3796,6 +4413,27 @@ class $$BusinessesTableTableManager
                       referencedColumn: 'business_id',
                       typedResults: items,
                     ),
+                  if (usersRefs)
+                    await $_getPrefetchedDataByColumns<
+                      BusinessesData,
+                      $BusinessesTable,
+                      User,
+                      $UsersTable
+                    >(
+                      currentTable: table,
+                      referencedTable: $$BusinessesTableReferences
+                          ._usersRefsTable(db),
+                      managerFromTypedResult:
+                          (p0) =>
+                              $$BusinessesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).usersRefs,
+                      currentColumn: 'id',
+                      referencedColumn: 'business_id',
+                      typedResults: items,
+                    ),
                 ];
               },
             );
@@ -3821,6 +4459,7 @@ typedef $$BusinessesTableProcessedTableManager =
         bool productsRefs,
         bool salesRefs,
         bool stockMovementsRefs,
+        bool usersRefs,
       })
     >;
 typedef $$CategoriesTableCreateCompanionBuilder =
@@ -6375,6 +7014,360 @@ typedef $$StockMovementsTableProcessedTableManager =
       StockMovement,
       PrefetchHooks Function({bool businessId, bool productId})
     >;
+typedef $$UsersTableCreateCompanionBuilder =
+    UsersCompanion Function({
+      required String id,
+      required String businessId,
+      required String name,
+      required String pinHash,
+      Value<String> role,
+      Value<bool> isActive,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$UsersTableUpdateCompanionBuilder =
+    UsersCompanion Function({
+      Value<String> id,
+      Value<String> businessId,
+      Value<String> name,
+      Value<String> pinHash,
+      Value<String> role,
+      Value<bool> isActive,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$UsersTableReferences
+    extends BaseReferences<_$AppDatabase, $UsersTable, User> {
+  $$UsersTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BusinessesTable _businessIdTable(_$AppDatabase db) =>
+      db.businesses.createAlias('users__business_id__businesses__id');
+
+  $$BusinessesTableProcessedTableManager get businessId {
+    final $_column = $_itemColumn<String>('business_id')!;
+
+    final manager = $$BusinessesTableTableManager(
+      $_db,
+      $_db.businesses,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_businessIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
+  $$UsersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pinHash => $composableBuilder(
+    column: $table.pinHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BusinessesTableFilterComposer get businessId {
+    final $$BusinessesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.businessId,
+      referencedTable: $db.businesses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessesTableFilterComposer(
+            $db: $db,
+            $table: $db.businesses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$UsersTableOrderingComposer
+    extends Composer<_$AppDatabase, $UsersTable> {
+  $$UsersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pinHash => $composableBuilder(
+    column: $table.pinHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BusinessesTableOrderingComposer get businessId {
+    final $$BusinessesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.businessId,
+      referencedTable: $db.businesses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessesTableOrderingComposer(
+            $db: $db,
+            $table: $db.businesses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$UsersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UsersTable> {
+  $$UsersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get pinHash =>
+      $composableBuilder(column: $table.pinHash, builder: (column) => column);
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$BusinessesTableAnnotationComposer get businessId {
+    final $$BusinessesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.businessId,
+      referencedTable: $db.businesses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.businesses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$UsersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $UsersTable,
+          User,
+          $$UsersTableFilterComposer,
+          $$UsersTableOrderingComposer,
+          $$UsersTableAnnotationComposer,
+          $$UsersTableCreateCompanionBuilder,
+          $$UsersTableUpdateCompanionBuilder,
+          (User, $$UsersTableReferences),
+          User,
+          PrefetchHooks Function({bool businessId})
+        > {
+  $$UsersTableTableManager(_$AppDatabase db, $UsersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer:
+              () => $$UsersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer:
+              () => $$UsersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer:
+              () => $$UsersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> businessId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> pinHash = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UsersCompanion(
+                id: id,
+                businessId: businessId,
+                name: name,
+                pinHash: pinHash,
+                role: role,
+                isActive: isActive,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String businessId,
+                required String name,
+                required String pinHash,
+                Value<String> role = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UsersCompanion.insert(
+                id: id,
+                businessId: businessId,
+                name: name,
+                pinHash: pinHash,
+                role: role,
+                isActive: isActive,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable<$UsersTable, User>(table),
+                          $$UsersTableReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: ({businessId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                T extends TableManagerState<
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic
+                >
+              >(state) {
+                if (businessId) {
+                  state =
+                      state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.businessId,
+                            referencedTable: $$UsersTableReferences
+                                ._businessIdTable(db),
+                            referencedColumn:
+                                $$UsersTableReferences._businessIdTable(db).id,
+                          )
+                          as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$UsersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $UsersTable,
+      User,
+      $$UsersTableFilterComposer,
+      $$UsersTableOrderingComposer,
+      $$UsersTableAnnotationComposer,
+      $$UsersTableCreateCompanionBuilder,
+      $$UsersTableUpdateCompanionBuilder,
+      (User, $$UsersTableReferences),
+      User,
+      PrefetchHooks Function({bool businessId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6391,4 +7384,6 @@ class $AppDatabaseManager {
       $$SaleItemsTableTableManager(_db, _db.saleItems);
   $$StockMovementsTableTableManager get stockMovements =>
       $$StockMovementsTableTableManager(_db, _db.stockMovements);
+  $$UsersTableTableManager get users =>
+      $$UsersTableTableManager(_db, _db.users);
 }

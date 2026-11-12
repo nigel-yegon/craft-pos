@@ -5,7 +5,15 @@ import 'tables.dart';
 part 'app_database.g.dart';
 
 @DriftDatabase(
-  tables: [Businesses, Categories, Products, Sales, SaleItems, StockMovements],
+  tables: [
+    Businesses,
+    Categories,
+    Products,
+    Sales,
+    SaleItems,
+    StockMovements,
+    Users,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase()
@@ -20,25 +28,33 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async => await m.createAll(),
     onUpgrade: (m, from, to) async {
-      if (from < 2) await m.createTable(stockMovements);
+      if (from < 2) {
+        await m.createTable(stockMovements);
+      }
+      if (from < 3) {
+        await m.addColumn(businesses, businesses.imagePath);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
 
-  // --- Dashboard Metrics ---
-  Future<int> getBusinessCount() async => (await select(businesses).get()).length;
+  // ─── Dashboard Metrics ────────────────────────────────────────────
+
+  Future<int> getBusinessCount() async =>
+      (await select(businesses).get()).length;
 
   Future<int> getProductCount(String businessId) async {
     final query = select(products)
-      ..where((p) => p.businessId.equals(businessId) & (p.isActive.equals(true)));
+      ..where((p) =>
+      p.businessId.equals(businessId) & p.isActive.equals(true));
     return (await query.get()).length;
   }
 
@@ -55,7 +71,7 @@ class AppDatabase extends _$AppDatabase {
       s.createdAt.isSmallerThanValue(end));
 
     final results = await query.get();
-    return results.fold<int>(0, (total, sale) => total + sale.totalAmountMinor);
+    return results.fold<int>(0, (total, s) => total + s.totalAmountMinor);
   }
 
   Future<int> getTodayTransactionCount(String businessId) async {
@@ -73,7 +89,8 @@ class AppDatabase extends _$AppDatabase {
     return (await query.get()).length;
   }
 
-  // --- Stock Ledger ---
+  // ─── Stock Ledger ─────────────────────────────────────────────────
+
   Future<int> getProductStock(String productId) async {
     final query = selectOnly(stockMovements)
       ..addColumns([stockMovements.quantityMilli.sum()])
@@ -85,14 +102,15 @@ class AppDatabase extends _$AppDatabase {
   Future<int> getLowStockCount(String businessId) async {
     final query = customSelect(
       '''
-      SELECT COUNT(*) as low_stock_count
+      SELECT COUNT(*) AS low_stock_count
       FROM (
-        SELECT p.id, p.reorder_level_milli, COALESCE(SUM(sm.quantity_milli), 0) as current_stock
+        SELECT p.id, p.reorder_level_milli,
+               COALESCE(SUM(sm.quantity_milli), 0) AS current_stock
         FROM products p
         LEFT JOIN stock_movements sm ON p.id = sm.product_id
         WHERE p.business_id = ? AND p.is_active = 1
         GROUP BY p.id
-      ) as stock_calc
+      ) AS stock_calc
       WHERE current_stock <= reorder_level_milli
       ''',
       variables: [Variable.withString(businessId)],

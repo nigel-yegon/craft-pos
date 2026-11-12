@@ -8,8 +8,14 @@ void main() {
     // 1. Initialize the database using the standard constructor
     final testDb = AppDatabase();
 
-    // 2. Build the app and pass the database
-    await tester.pumpWidget(App(database: testDb));
+    // 2. Build the app and pass the database and initial route
+    // Note: We pass '/dashboard' to bypass the splash screen for this test
+    await tester.pumpWidget(
+      App(
+        database: testDb,
+        initialRoute: '/dashboard',
+      ),
+    );
 
     // 3. Verify the app rendered (e.g., looking for the MaterialApp widget)
     expect(find.byType(MaterialApp), findsOneWidget);

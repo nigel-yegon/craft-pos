@@ -6,6 +6,7 @@ class Businesses extends Table {
   TextColumn get phone => text().nullable()();
   TextColumn get email => text().nullable()();
   TextColumn get address => text().nullable()();
+  TextColumn get imagePath => text().nullable()();   // ⭐ single definition
   TextColumn get currency => text().withDefault(const Constant('KES'))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
@@ -32,16 +33,11 @@ class Products extends Table {
   TextColumn get sku => text().nullable()();
   TextColumn get barcode => text().nullable()();
 
-  // Money is stored in minor units.
-  // KES 100.50 = 10050.
+  // Money stored in minor units (KES 100.50 = 10050)
   IntColumn get sellingPriceMinor => integer().withDefault(const Constant(0))();
   IntColumn get costPriceMinor => integer().withDefault(const Constant(0))();
 
-  // REMOVED quantityMilli from here. 
-  // Current stock is calculated dynamically via the StockMovements ledger.
-
-  // Quantities use thousandths to support fractional stock.
-  // 5.000 units = 5000.
+  // Quantities stored in thousandths (5.000 units = 5000)
   IntColumn get reorderLevelMilli => integer().withDefault(const Constant(5000))();
 
   TextColumn get unit => text().withDefault(const Constant('pcs'))();
@@ -72,17 +68,13 @@ class SaleItems extends Table {
 
   IntColumn get quantityMilli => integer()();
   IntColumn get unitPriceMinor => integer()();
-
-  // Added costPriceMinor to lock in the profit margin at the time of sale
   IntColumn get costPriceMinor => integer().withDefault(const Constant(0))();
-
   IntColumn get lineTotalMinor => integer()();
 
   @override
   Set<Column> get primaryKey => {id};
 }
 
-// Added a blank line here for proper formatting
 class StockMovements extends Table {
   TextColumn get id => text()();
   TextColumn get businessId => text().references(Businesses, #id, onDelete: KeyAction.cascade)();
@@ -96,6 +88,19 @@ class StockMovements extends Table {
   TextColumn get referenceId => text().nullable()();
   TextColumn get note => text().nullable()();
 
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class Users extends Table {
+  TextColumn get id => text()();
+  TextColumn get businessId => text().references(Businesses, #id, onDelete: KeyAction.cascade)();
+  TextColumn get name => text()();
+  TextColumn get pinHash => text()();
+  TextColumn get role => text().withDefault(const Constant('owner'))();
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override

@@ -11,17 +11,33 @@ class CategoryFormScreen extends StatefulWidget {
 
 class _CategoryFormScreenState extends State<CategoryFormScreen> {
   final _nameController = TextEditingController();
+  final _descController = TextEditingController();
+  bool _isSaving = false;
 
   Future<void> _save() async {
     final name = _nameController.text.trim();
-    if (name.isEmpty) return;
-
-    final success = await widget.provider.addCategory(name);
-    if (success && mounted) {
-      Navigator.pop(context);
-    } else if (mounted) {
+    if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Category already exists!')),
+        const SnackBar(content: Text('Category name is required')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    final success = await widget.provider.addCategory(
+      name,
+      description: _descController.text.trim(),
+    );
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+
+    if (success) {
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Category already exists or failed to save.')),
       );
     }
   }
@@ -31,13 +47,40 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('New Category'),
-        actions: [IconButton(onPressed: _save, icon: const Icon(Icons.save))],
+        actions: [
+          IconButton(
+            icon: _isSaving
+                ? const SizedBox(
+              width: 20, height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+                : const Icon(Icons.check),
+            onPressed: _isSaving ? null : _save,
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: TextField(
-          controller: _nameController,
-          decoration: const InputDecoration(labelText: 'Category Name'),
+        child: Column(
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Category Name *',
+                hintText: 'e.g., Electronics',
+              ),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _descController,
+              decoration: const InputDecoration(
+                labelText: 'Description (Optional)',
+                hintText: 'e.g., Phones, chargers, etc.',
+              ),
+              maxLines: 3,
+            ),
+          ],
         ),
       ),
     );

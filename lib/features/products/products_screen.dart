@@ -45,31 +45,34 @@ class _ProductsScreenState extends State<ProductsScreen> {
       ),
       body: Column(
         children: [
-          // Search Bar
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
               decoration: const InputDecoration(
-                hintText: 'Search products...',
+                hintText: 'Search products by name or SKU...',
                 prefixIcon: Icon(Icons.search),
               ),
               onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
             ),
           ),
-
-          // Product List
           Expanded(
             child: StreamBuilder<List<Product>>(
               stream: widget.provider.productsStream,
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
 
-                final products = snapshot.data!.where((p) {
+                final allProducts = snapshot.data ?? [];
+                final filteredProducts = allProducts.where((p) {
                   return p.name.toLowerCase().contains(_searchQuery) ||
                       (p.sku?.toLowerCase().contains(_searchQuery) ?? false);
                 }).toList();
 
-                if (products.isEmpty) {
+                if (filteredProducts.isEmpty) {
                   return const Center(
                     child: Text('No products found.', style: TextStyle(color: AppTheme.textLight)),
                   );
@@ -77,11 +80,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
                 return ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: products.length,
+                  itemCount: filteredProducts.length,
                   separatorBuilder: (context, index) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
-                    final p = products[index];
-
+                    final p = filteredProducts[index];
                     return FutureBuilder<int>(
                       future: widget.provider.db.getProductStock(p.id),
                       builder: (context, stockSnapshot) {
@@ -92,14 +94,20 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         return Card(
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            title: Text(
-                              p.name,
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                            leading: Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryGreen.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.inventory_2, color: AppTheme.primaryGreen),
                             ),
+                            title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textDark)),
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 4.0),
                               child: Text(
-                                'KES ${(p.sellingPriceMinor / 100).toStringAsFixed(2)}',
+                                'KSh ${(p.sellingPriceMinor / 100).toStringAsFixed(2)}',
                                 style: const TextStyle(color: AppTheme.primaryGreen, fontWeight: FontWeight.w600),
                               ),
                             ),
@@ -116,19 +124,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   ),
                                 ),
                                 if (isLow)
-                                  const Text(
-                                    'LOW STOCK',
-                                    style: TextStyle(color: AppTheme.warningRed, fontSize: 10, fontWeight: FontWeight.bold),
-                                  ),
+                                  const Text('LOW STOCK', style: TextStyle(color: AppTheme.warningRed, fontSize: 10, fontWeight: FontWeight.bold)),
                               ],
                             ),
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => ProductFormScreen(
-                                  provider: widget.provider,
-                                  product: p,
-                                ),
+                                builder: (_) => ProductFormScreen(provider: widget.provider, product: p),
                               ),
                             ),
                           ),

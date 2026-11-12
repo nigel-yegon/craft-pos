@@ -1,45 +1,335 @@
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
+import '../../core/database/app_database.dart';
 import '../../core/providers/report_provider.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/utils/pdf_helper.dart';
 
-class ReportsScreen extends StatelessWidget {
+class ReportsScreen extends StatefulWidget {
   final ReportProvider provider;
   const ReportsScreen({super.key, required this.provider});
 
   @override
+  State<ReportsScreen> createState() => _ReportsScreenState();
+}
+
+class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  Map<String, int> _summary = {};
+  List<Map<String, dynamic>> _trend = [];
+  List<Sale> _salesInRange = [];
+  bool _isLoading = true;
+  DateTime _start = DateTime.now();
+  DateTime _end = DateTime.now();
+  String _periodLabel = 'Today';
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(_onTabChanged);
+    _loadData(0);
+  }
+
+  void _onTabChanged() {
+    if (!_tabController.indexIsChanging) {
+      _loadData(_tabController.index);
+    }
+  }
+
+  Future<void> _loadData(int tabIndex) async {
+    setState(() => _isLoading = true);
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    Map<String, int> summary;
+    List<Map<String, dynamic>> trend;
+    List<Sale> sales;
+
+    if (tabIndex == 0) {
+      // Today
+      summary = await widget.provider.getDailySummary();
+      trend = await widget.provider.getSalesTrend();
+      _start = today;
+      _end = today.add(const Duration(days: 1));
+      _periodLabel = 'Today';
+    } else if (tabIndex == 1) {
+      // Weekly
+      summary = await widget.provider.getWeeklySummary();
+      trend = await widget.provider.getSalesTrend();
+      _start = today.subtract(const Duration(days: 6));
+      _end = today.add(const Duration(days: 1));
+      _periodLabel = 'Last 7 Days';
+    } else {
+      // Monthly
+      summary = await widget.provider.getMonthlySummary();
+      trend = await widget.provider.getSalesTrend();
+      _start = today.subtract(const Duration(days: 29));
+      _end = today.add(const Duration(days: 1));
+      _periodLabel = 'Last 30 Days';
+    }
+
+    sales = await widget.provider.getSalesInRange(_start, _end);
+
+    setState(() {
+      _summary = summary;
+      _trend = trend;
+      _salesInRange = sales;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _exportPdf() async {
+    final businessName = 'My Shop'; // You can fetch from db if needed
+    await PdfHelper.generateSalesReport(
+      businessName: businessName,
+      sales: _salesInRange,
+      summary: _summary,
+      start: _start,
+      end: _end,
+    );
+  }
+
+  String _formatKsh(int minorUnits) => 'KSh ${(minorUnits / 100).toStringAsFixed(2)}';
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Reports')),
-      body: FutureBuilder<Map<String, int>>(
-        future: provider.getDailySummary(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final data = snapshot.data!;
+      appBar: AppBar(
+        title: const Text('Reports'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: AppTheme.primaryGreen),
+            tooltip: 'Export PDF',
+            onPressed: _isLoading ? null : _exportPdf,
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: AppTheme.primaryGreen,
+          labelColor: AppTheme.primaryGreen,
+          unselectedLabelColor: AppTheme.textLight,
+          tabs: const [
+            Tab(text: 'Today'),
+            Tab(text: 'Weekly'),
+            Tab(text: 'Monthly'),
+          ],
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+        onRefresh: () => _loadData(_tabController.index),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Period Label
+              Text(
+                'Period: $_periodLabel',
+                style: const TextStyle(fontSize: 14, color: AppTheme.textLight, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 16),
 
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                _buildMetricCard('Today\'s Sales', 'KES ${(data['sales']! / 100).toStringAsFixed(2)}', Colors.blue),
-                const SizedBox(height: 16),
-                _buildMetricCard('Today\'s Profit', 'KES ${(data['profit']! / 100).toStringAsFixed(2)}', Colors.green),
-                const SizedBox(height: 16),
-                _buildMetricCard('Stock Valuation', 'KES ${(data['stockValue']! / 100).toStringAsFixed(2)}', Colors.orange),
-              ],
-            ),
-          );
-        },
+              // Summary Cards
+              Row(
+                children: [
+                  _buildMetricCard(
+                    'Sales',
+                    _formatKsh(_summary['sales'] ?? 0),
+                    AppTheme.primaryGreen,
+                    Icons.attach_money,
+                  ),
+                  const SizedBox(width: 12),
+                  _buildMetricCard(
+                    'Profit',
+                    _formatKsh(_summary['profit'] ?? 0),
+                    Colors.blue,
+                    Icons.trending_up,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _buildMetricCard(
+                    'Stock Value',
+                    _formatKsh(_summary['stockValue'] ?? 0),
+                    Colors.orange,
+                    Icons.inventory,
+                  ),
+                  const SizedBox(width: 12),
+                  _buildMetricCard(
+                    'Transactions',
+                    '${_salesInRange.length}',
+                    Colors.purple,
+                    Icons.receipt_long,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Sales Trend Chart
+              const Text(
+                'Sales Trend (Last 7 Days)',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    height: 220,
+                    child: _buildChart(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Recent Transactions
+              const Text(
+                'Transactions',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+              ),
+              const SizedBox(height: 12),
+              if (_salesInRange.isEmpty)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                      child: Text('No transactions for this period', style: TextStyle(color: AppTheme.textLight)),
+                    ),
+                  ),
+                )
+              else
+                ..._salesInRange.take(10).map((sale) {
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryGreen.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.receipt, color: AppTheme.primaryGreen, size: 20),
+                      ),
+                      title: Text(
+                        DateFormat('dd MMM, HH:mm').format(sale.createdAt),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      subtitle: Text(sale.paymentMethod ?? 'Unknown', style: const TextStyle(fontSize: 12)),
+                      trailing: Text(
+                        _formatKsh(sale.totalAmountMinor),
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildMetricCard(String title, String value, Color color) {
-    return Card(
-      elevation: 4,
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: Icon(Icons.analytics, color: color, size: 40),
-        title: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-        trailing: Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+  Widget _buildMetricCard(String title, String value, Color color, IconData icon) {
+    return Expanded(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(height: 12),
+              Text(title, style: const TextStyle(fontSize: 12, color: AppTheme.textLight)),
+              const SizedBox(height: 4),
+              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChart() {
+    if (_trend.isEmpty) return const Center(child: Text('No data'));
+
+    final maxY = _trend
+        .map((e) => (e['total'] as int) / 100.0)
+        .reduce((a, b) => a > b ? a : b) *
+        1.2;
+    final safeMaxY = maxY < 100 ? 100.0 : maxY;
+
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: safeMaxY,
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: safeMaxY / 4,
+          getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+        ),
+        borderData: FlBorderData(show: false),
+        titlesData: FlTitlesData(
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 44,
+              getTitlesWidget: (value, meta) => Text(
+                '${value.toInt()}',
+                style: const TextStyle(fontSize: 10, color: AppTheme.textLight),
+              ),
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 28,
+              getTitlesWidget: (value, meta) {
+                final index = value.toInt();
+                if (index < 0 || index >= _trend.length) return const SizedBox();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    _trend[index]['label'],
+                    style: const TextStyle(fontSize: 10, color: AppTheme.textLight),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        barGroups: _trend.asMap().entries.map((entry) {
+          final index = entry.key;
+          final total = (entry.value['total'] as int) / 100.0;
+          return BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: total,
+                color: AppTheme.primaryGreen,
+                width: 18,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+              ),
+            ],
+          );
+        }).toList(),
       ),
     );
   }

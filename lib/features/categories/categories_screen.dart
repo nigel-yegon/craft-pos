@@ -10,21 +10,30 @@ class CategoriesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Categories')),
+      appBar: AppBar(title: const Text('Manage Categories')),
       body: StreamBuilder<List<Category>>(
         stream: provider.categoriesStream,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final cats = snapshot.data!;
-          if (cats.isEmpty) return const Center(child: Text('No categories yet.'));
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final categories = snapshot.data ?? [];
+          if (categories.isEmpty) {
+            return const Center(child: Text('No categories yet.'));
+          }
 
           return ListView.builder(
-            itemCount: cats.length,
+            itemCount: categories.length,
             itemBuilder: (context, index) {
-              final cat = cats[index];
+              final cat = categories[index];
               return ListTile(
                 title: Text(cat.name),
-                subtitle: Text(cat.description ?? 'No description'),
+                subtitle: cat.description != null ? Text(cat.description!) : null,
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => provider.deleteCategory(cat.id),
+                ),
               );
             },
           );
@@ -34,7 +43,9 @@ class CategoriesScreen extends StatelessWidget {
         child: const Icon(Icons.add),
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => CategoryFormScreen(provider: provider)),
+          MaterialPageRoute(
+            builder: (_) => CategoryFormScreen(provider: provider),
+          ),
         ),
       ),
     );

@@ -6,7 +6,6 @@ import '../database/app_database.dart';
 class SalesProvider extends ChangeNotifier {
   final AppDatabase db;
   final String businessId;
-
   SalesProvider(this.db, this.businessId);
 
   Future<void> completeSale({
@@ -17,7 +16,6 @@ class SalesProvider extends ChangeNotifier {
     final saleId = const Uuid().v4();
 
     await db.transaction(() async {
-      // 1. Create the Sale record
       await db.into(db.sales).insert(
         SalesCompanion.insert(
           id: saleId,
@@ -27,9 +25,7 @@ class SalesProvider extends ChangeNotifier {
         ),
       );
 
-      // 2. Create Sale Items and deduct stock
       for (final item in cart) {
-        // Save Sale Item
         await db.into(db.saleItems).insert(
           SaleItemsCompanion.insert(
             id: const Uuid().v4(),
@@ -42,14 +38,13 @@ class SalesProvider extends ChangeNotifier {
           ),
         );
 
-        // Record Stock Movement (Negative quantity for sales)
         await db.into(db.stockMovements).insert(
           StockMovementsCompanion.insert(
             id: const Uuid().v4(),
             businessId: businessId,
             productId: item.product.id,
             type: 'sale',
-            quantityMilli: -item.quantityMilli, // Negative!
+            quantityMilli: -item.quantityMilli,
             referenceId: drift.Value(saleId),
           ),
         );
