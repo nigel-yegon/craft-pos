@@ -3633,6 +3633,424 @@ class UsersCompanion extends UpdateCompanion<User> {
   }
 }
 
+class $HeldOrdersTable extends HeldOrders
+    with TableInfo<$HeldOrdersTable, HeldOrder> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $HeldOrdersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _businessIdMeta = const VerificationMeta(
+    'businessId',
+  );
+  @override
+  late final GeneratedColumn<String> businessId = GeneratedColumn<String>(
+    'business_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES businesses (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _cartJsonMeta = const VerificationMeta(
+    'cartJson',
+  );
+  @override
+  late final GeneratedColumn<String> cartJson = GeneratedColumn<String>(
+    'cart_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _totalAmountMinorMeta = const VerificationMeta(
+    'totalAmountMinor',
+  );
+  @override
+  late final GeneratedColumn<int> totalAmountMinor = GeneratedColumn<int>(
+    'total_amount_minor',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    businessId,
+    cartJson,
+    totalAmountMinor,
+    note,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'held_orders';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<HeldOrder> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('business_id')) {
+      context.handle(
+        _businessIdMeta,
+        businessId.isAcceptableOrUnknown(data['business_id']!, _businessIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_businessIdMeta);
+    }
+    if (data.containsKey('cart_json')) {
+      context.handle(
+        _cartJsonMeta,
+        cartJson.isAcceptableOrUnknown(data['cart_json']!, _cartJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cartJsonMeta);
+    }
+    if (data.containsKey('total_amount_minor')) {
+      context.handle(
+        _totalAmountMinorMeta,
+        totalAmountMinor.isAcceptableOrUnknown(
+          data['total_amount_minor']!,
+          _totalAmountMinorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  HeldOrder map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return HeldOrder(
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}id'],
+          )!,
+      businessId:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}business_id'],
+          )!,
+      cartJson:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}cart_json'],
+          )!,
+      totalAmountMinor:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}total_amount_minor'],
+          )!,
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+      createdAt:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.dateTime,
+            data['${effectivePrefix}created_at'],
+          )!,
+    );
+  }
+
+  @override
+  $HeldOrdersTable createAlias(String alias) {
+    return $HeldOrdersTable(attachedDatabase, alias);
+  }
+}
+
+class HeldOrder extends DataClass implements Insertable<HeldOrder> {
+  final String id;
+  final String businessId;
+  final String cartJson;
+  final int totalAmountMinor;
+  final String? note;
+  final DateTime createdAt;
+  const HeldOrder({
+    required this.id,
+    required this.businessId,
+    required this.cartJson,
+    required this.totalAmountMinor,
+    this.note,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['business_id'] = Variable<String>(businessId);
+    map['cart_json'] = Variable<String>(cartJson);
+    map['total_amount_minor'] = Variable<int>(totalAmountMinor);
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  HeldOrdersCompanion toCompanion(bool nullToAbsent) {
+    return HeldOrdersCompanion(
+      id: Value(id),
+      businessId: Value(businessId),
+      cartJson: Value(cartJson),
+      totalAmountMinor: Value(totalAmountMinor),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory HeldOrder.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return HeldOrder(
+      id: serializer.fromJson<String>(json['id']),
+      businessId: serializer.fromJson<String>(json['businessId']),
+      cartJson: serializer.fromJson<String>(json['cartJson']),
+      totalAmountMinor: serializer.fromJson<int>(json['totalAmountMinor']),
+      note: serializer.fromJson<String?>(json['note']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'businessId': serializer.toJson<String>(businessId),
+      'cartJson': serializer.toJson<String>(cartJson),
+      'totalAmountMinor': serializer.toJson<int>(totalAmountMinor),
+      'note': serializer.toJson<String?>(note),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  HeldOrder copyWith({
+    String? id,
+    String? businessId,
+    String? cartJson,
+    int? totalAmountMinor,
+    Value<String?> note = const Value.absent(),
+    DateTime? createdAt,
+  }) => HeldOrder(
+    id: id ?? this.id,
+    businessId: businessId ?? this.businessId,
+    cartJson: cartJson ?? this.cartJson,
+    totalAmountMinor: totalAmountMinor ?? this.totalAmountMinor,
+    note: note.present ? note.value : this.note,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  HeldOrder copyWithCompanion(HeldOrdersCompanion data) {
+    return HeldOrder(
+      id: data.id.present ? data.id.value : this.id,
+      businessId:
+          data.businessId.present ? data.businessId.value : this.businessId,
+      cartJson: data.cartJson.present ? data.cartJson.value : this.cartJson,
+      totalAmountMinor:
+          data.totalAmountMinor.present
+              ? data.totalAmountMinor.value
+              : this.totalAmountMinor,
+      note: data.note.present ? data.note.value : this.note,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HeldOrder(')
+          ..write('id: $id, ')
+          ..write('businessId: $businessId, ')
+          ..write('cartJson: $cartJson, ')
+          ..write('totalAmountMinor: $totalAmountMinor, ')
+          ..write('note: $note, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, businessId, cartJson, totalAmountMinor, note, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is HeldOrder &&
+          other.id == this.id &&
+          other.businessId == this.businessId &&
+          other.cartJson == this.cartJson &&
+          other.totalAmountMinor == this.totalAmountMinor &&
+          other.note == this.note &&
+          other.createdAt == this.createdAt);
+}
+
+class HeldOrdersCompanion extends UpdateCompanion<HeldOrder> {
+  final Value<String> id;
+  final Value<String> businessId;
+  final Value<String> cartJson;
+  final Value<int> totalAmountMinor;
+  final Value<String?> note;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const HeldOrdersCompanion({
+    this.id = const Value.absent(),
+    this.businessId = const Value.absent(),
+    this.cartJson = const Value.absent(),
+    this.totalAmountMinor = const Value.absent(),
+    this.note = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  HeldOrdersCompanion.insert({
+    required String id,
+    required String businessId,
+    required String cartJson,
+    this.totalAmountMinor = const Value.absent(),
+    this.note = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       businessId = Value(businessId),
+       cartJson = Value(cartJson);
+  static Insertable<HeldOrder> custom({
+    Expression<String>? id,
+    Expression<String>? businessId,
+    Expression<String>? cartJson,
+    Expression<int>? totalAmountMinor,
+    Expression<String>? note,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (businessId != null) 'business_id': businessId,
+      if (cartJson != null) 'cart_json': cartJson,
+      if (totalAmountMinor != null) 'total_amount_minor': totalAmountMinor,
+      if (note != null) 'note': note,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  HeldOrdersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? businessId,
+    Value<String>? cartJson,
+    Value<int>? totalAmountMinor,
+    Value<String?>? note,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return HeldOrdersCompanion(
+      id: id ?? this.id,
+      businessId: businessId ?? this.businessId,
+      cartJson: cartJson ?? this.cartJson,
+      totalAmountMinor: totalAmountMinor ?? this.totalAmountMinor,
+      note: note ?? this.note,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (businessId.present) {
+      map['business_id'] = Variable<String>(businessId.value);
+    }
+    if (cartJson.present) {
+      map['cart_json'] = Variable<String>(cartJson.value);
+    }
+    if (totalAmountMinor.present) {
+      map['total_amount_minor'] = Variable<int>(totalAmountMinor.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HeldOrdersCompanion(')
+          ..write('id: $id, ')
+          ..write('businessId: $businessId, ')
+          ..write('cartJson: $cartJson, ')
+          ..write('totalAmountMinor: $totalAmountMinor, ')
+          ..write('note: $note, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3643,6 +4061,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SaleItemsTable saleItems = $SaleItemsTable(this);
   late final $StockMovementsTable stockMovements = $StockMovementsTable(this);
   late final $UsersTable users = $UsersTable(this);
+  late final $HeldOrdersTable heldOrders = $HeldOrdersTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3655,6 +4074,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     saleItems,
     stockMovements,
     users,
+    heldOrders,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3713,6 +4133,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('users', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'businesses',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('held_orders', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -3834,6 +4261,24 @@ final class $$BusinessesTableReferences
     ).filter((f) => f.businessId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_usersRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$HeldOrdersTable, List<HeldOrder>>
+  _heldOrdersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.heldOrders,
+    aliasName: 'businesses__id__held_orders__business_id',
+  );
+
+  $$HeldOrdersTableProcessedTableManager get heldOrdersRefs {
+    final manager = $$HeldOrdersTableTableManager(
+      $_db,
+      $_db.heldOrders,
+    ).filter((f) => f.businessId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_heldOrdersRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -4005,6 +4450,31 @@ class $$BusinessesTableFilterComposer
           }) => $$UsersTableFilterComposer(
             $db: $db,
             $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> heldOrdersRefs(
+    Expression<bool> Function($$HeldOrdersTableFilterComposer f) f,
+  ) {
+    final $$HeldOrdersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.heldOrders,
+      getReferencedColumn: (t) => t.businessId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$HeldOrdersTableFilterComposer(
+            $db: $db,
+            $table: $db.heldOrders,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4222,6 +4692,31 @@ class $$BusinessesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> heldOrdersRefs<T extends Object>(
+    Expression<T> Function($$HeldOrdersTableAnnotationComposer a) f,
+  ) {
+    final $$HeldOrdersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.heldOrders,
+      getReferencedColumn: (t) => t.businessId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$HeldOrdersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.heldOrders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BusinessesTableTableManager
@@ -4243,6 +4738,7 @@ class $$BusinessesTableTableManager
             bool salesRefs,
             bool stockMovementsRefs,
             bool usersRefs,
+            bool heldOrdersRefs,
           })
         > {
   $$BusinessesTableTableManager(_$AppDatabase db, $BusinessesTable table)
@@ -4316,6 +4812,7 @@ class $$BusinessesTableTableManager
             salesRefs = false,
             stockMovementsRefs = false,
             usersRefs = false,
+            heldOrdersRefs = false,
           }) {
             return PrefetchHooks(
               db: db,
@@ -4325,6 +4822,7 @@ class $$BusinessesTableTableManager
                 if (salesRefs) db.sales,
                 if (stockMovementsRefs) db.stockMovements,
                 if (usersRefs) db.users,
+                if (heldOrdersRefs) db.heldOrders,
               ],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
@@ -4434,6 +4932,27 @@ class $$BusinessesTableTableManager
                       referencedColumn: 'business_id',
                       typedResults: items,
                     ),
+                  if (heldOrdersRefs)
+                    await $_getPrefetchedDataByColumns<
+                      BusinessesData,
+                      $BusinessesTable,
+                      HeldOrder,
+                      $HeldOrdersTable
+                    >(
+                      currentTable: table,
+                      referencedTable: $$BusinessesTableReferences
+                          ._heldOrdersRefsTable(db),
+                      managerFromTypedResult:
+                          (p0) =>
+                              $$BusinessesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).heldOrdersRefs,
+                      currentColumn: 'id',
+                      referencedColumn: 'business_id',
+                      typedResults: items,
+                    ),
                 ];
               },
             );
@@ -4460,6 +4979,7 @@ typedef $$BusinessesTableProcessedTableManager =
         bool salesRefs,
         bool stockMovementsRefs,
         bool usersRefs,
+        bool heldOrdersRefs,
       })
     >;
 typedef $$CategoriesTableCreateCompanionBuilder =
@@ -7368,6 +7888,346 @@ typedef $$UsersTableProcessedTableManager =
       User,
       PrefetchHooks Function({bool businessId})
     >;
+typedef $$HeldOrdersTableCreateCompanionBuilder =
+    HeldOrdersCompanion Function({
+      required String id,
+      required String businessId,
+      required String cartJson,
+      Value<int> totalAmountMinor,
+      Value<String?> note,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$HeldOrdersTableUpdateCompanionBuilder =
+    HeldOrdersCompanion Function({
+      Value<String> id,
+      Value<String> businessId,
+      Value<String> cartJson,
+      Value<int> totalAmountMinor,
+      Value<String?> note,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$HeldOrdersTableReferences
+    extends BaseReferences<_$AppDatabase, $HeldOrdersTable, HeldOrder> {
+  $$HeldOrdersTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BusinessesTable _businessIdTable(_$AppDatabase db) =>
+      db.businesses.createAlias('held_orders__business_id__businesses__id');
+
+  $$BusinessesTableProcessedTableManager get businessId {
+    final $_column = $_itemColumn<String>('business_id')!;
+
+    final manager = $$BusinessesTableTableManager(
+      $_db,
+      $_db.businesses,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_businessIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$HeldOrdersTableFilterComposer
+    extends Composer<_$AppDatabase, $HeldOrdersTable> {
+  $$HeldOrdersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cartJson => $composableBuilder(
+    column: $table.cartJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get totalAmountMinor => $composableBuilder(
+    column: $table.totalAmountMinor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BusinessesTableFilterComposer get businessId {
+    final $$BusinessesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.businessId,
+      referencedTable: $db.businesses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessesTableFilterComposer(
+            $db: $db,
+            $table: $db.businesses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$HeldOrdersTableOrderingComposer
+    extends Composer<_$AppDatabase, $HeldOrdersTable> {
+  $$HeldOrdersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cartJson => $composableBuilder(
+    column: $table.cartJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get totalAmountMinor => $composableBuilder(
+    column: $table.totalAmountMinor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BusinessesTableOrderingComposer get businessId {
+    final $$BusinessesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.businessId,
+      referencedTable: $db.businesses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessesTableOrderingComposer(
+            $db: $db,
+            $table: $db.businesses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$HeldOrdersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $HeldOrdersTable> {
+  $$HeldOrdersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get cartJson =>
+      $composableBuilder(column: $table.cartJson, builder: (column) => column);
+
+  GeneratedColumn<int> get totalAmountMinor => $composableBuilder(
+    column: $table.totalAmountMinor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$BusinessesTableAnnotationComposer get businessId {
+    final $$BusinessesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.businessId,
+      referencedTable: $db.businesses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.businesses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$HeldOrdersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $HeldOrdersTable,
+          HeldOrder,
+          $$HeldOrdersTableFilterComposer,
+          $$HeldOrdersTableOrderingComposer,
+          $$HeldOrdersTableAnnotationComposer,
+          $$HeldOrdersTableCreateCompanionBuilder,
+          $$HeldOrdersTableUpdateCompanionBuilder,
+          (HeldOrder, $$HeldOrdersTableReferences),
+          HeldOrder,
+          PrefetchHooks Function({bool businessId})
+        > {
+  $$HeldOrdersTableTableManager(_$AppDatabase db, $HeldOrdersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer:
+              () => $$HeldOrdersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer:
+              () => $$HeldOrdersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer:
+              () => $$HeldOrdersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> businessId = const Value.absent(),
+                Value<String> cartJson = const Value.absent(),
+                Value<int> totalAmountMinor = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HeldOrdersCompanion(
+                id: id,
+                businessId: businessId,
+                cartJson: cartJson,
+                totalAmountMinor: totalAmountMinor,
+                note: note,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String businessId,
+                required String cartJson,
+                Value<int> totalAmountMinor = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HeldOrdersCompanion.insert(
+                id: id,
+                businessId: businessId,
+                cartJson: cartJson,
+                totalAmountMinor: totalAmountMinor,
+                note: note,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable<$HeldOrdersTable, HeldOrder>(table),
+                          $$HeldOrdersTableReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: ({businessId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                T extends TableManagerState<
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic
+                >
+              >(state) {
+                if (businessId) {
+                  state =
+                      state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.businessId,
+                            referencedTable: $$HeldOrdersTableReferences
+                                ._businessIdTable(db),
+                            referencedColumn:
+                                $$HeldOrdersTableReferences
+                                    ._businessIdTable(db)
+                                    .id,
+                          )
+                          as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$HeldOrdersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $HeldOrdersTable,
+      HeldOrder,
+      $$HeldOrdersTableFilterComposer,
+      $$HeldOrdersTableOrderingComposer,
+      $$HeldOrdersTableAnnotationComposer,
+      $$HeldOrdersTableCreateCompanionBuilder,
+      $$HeldOrdersTableUpdateCompanionBuilder,
+      (HeldOrder, $$HeldOrdersTableReferences),
+      HeldOrder,
+      PrefetchHooks Function({bool businessId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7386,4 +8246,6 @@ class $AppDatabaseManager {
       $$StockMovementsTableTableManager(_db, _db.stockMovements);
   $$UsersTableTableManager get users =>
       $$UsersTableTableManager(_db, _db.users);
+  $$HeldOrdersTableTableManager get heldOrders =>
+      $$HeldOrdersTableTableManager(_db, _db.heldOrders);
 }

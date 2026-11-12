@@ -106,3 +106,14 @@ class Users extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+class HeldOrders extends Table {
+  TextColumn get id => text()();
+  TextColumn get businessId => text().references(Businesses, #id, onDelete: KeyAction.cascade)();
+  TextColumn get cartJson => text()();
+  IntColumn get totalAmountMinor => integer().withDefault(const Constant(0))();
+  TextColumn get note => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

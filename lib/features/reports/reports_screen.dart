@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:drift/drift.dart' hide Column;
 
 import '../../core/database/app_database.dart';
 import '../../core/providers/database_provider.dart';
@@ -24,11 +23,13 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
   Map<String, int> _summary = {};
   List<Map<String, dynamic>> _trend = [];
   List<Sale> _salesInRange = [];
+  List<HeldOrder> _heldOrders = [];
+  final Map<String, List<_SaleLine>> _lineCache = {};
   bool _isLoading = true;
   DateTime _start = DateTime.now();
   DateTime _end = DateTime.now();
   String _periodLabel = 'Today';
-  String _businessName = 'My Shop'; // ⭐ loaded from DB
+  String _businessName = 'My Shop';
 
   @override
   void initState() {
@@ -45,7 +46,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     super.dispose();
   }
 
-  /// ⭐ Fetch the business name from the database
+  // ─── Business name from DB ────────────────────────────────────────
   Future<void> _loadBusinessName() async {
     final db = ref.read(databaseProvider);
     final biz = await db.select(db.businesses).getSingleOrNull();
@@ -62,6 +63,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
 
   Future<void> _loadData(int tabIndex) async {
     setState(() => _isLoading = true);
+    _lineCache.clear();
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -69,6 +71,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     Map<String, int> summary;
     List<Map<String, dynamic>> trend;
     List<Sale> sales;
+    List<HeldOrder> held;
 
     if (tabIndex == 0) {
       summary = await widget.provider.getDailySummary();
@@ -91,18 +94,41 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     }
 
     sales = await widget.provider.getSalesInRange(_start, _end);
+    held = await widget.provider.getHeldOrders();
 
     if (!mounted) return;
     setState(() {
       _summary = summary;
       _trend = trend;
       _salesInRange = sales;
+      _heldOrders = held;
       _isLoading = false;
     });
   }
 
+  Future<List<_SaleLine>> _loadSaleLines(String saleId) async {
+    if (_lineCache.containsKey(saleId)) {
+      return _lineCache[saleId]!;
+    }
+
+    final items = await widget.provider.getSaleItems(saleId);
+    final lines = <_SaleLine>[];
+
+    for (final item in items) {
+      final product = await widget.provider.getProduct(item.productId);
+      lines.add(_SaleLine(
+        productName: product?.name ?? '(deleted product)',
+        quantity: item.quantityMilli / 1000.0,
+        unitPriceMinor: item.unitPriceMinor,
+        lineTotalMinor: item.lineTotalMinor,
+      ));
+    }
+
+    _lineCache[saleId] = lines;
+    return lines;
+  }
+
   Future<void> _exportPdf() async {
-    // ⭐ Use the real business name loaded from DB
     await PdfHelper.generateSalesReport(
       businessName: _businessName,
       sales: _salesInRange,
@@ -122,7 +148,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
         title: Text(_businessName.isNotEmpty ? _businessName : 'Reports'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf, color: AppTheme.primaryGreen),
+            icon: const Icon(Icons.picture_as_pdf,
+                color: AppTheme.primaryGreen),
             tooltip: 'Export PDF',
             onPressed: _isLoading ? null : _exportPdf,
           ),
@@ -158,7 +185,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               ),
               const SizedBox(height: 16),
 
-              // Summary Cards
               Row(
                 children: [
                   _buildMetricCard(
@@ -196,7 +222,28 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               ),
               const SizedBox(height: 24),
 
-              // Sales Trend Chart
+              if (_heldOrders.isNotEmpty) ...[
+                Card(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  child: ListTile(
+                    leading: const Icon(Icons.pause_circle_outline,
+                        color: Colors.orange),
+                    title: Text(
+                      '${_heldOrders.length} held order(s) awaiting payment',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Go to Sales → Held Orders to resume',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
               const Text(
                 'Sales Trend (Last 7 Days)',
                 style: TextStyle(
@@ -214,7 +261,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               ),
               const SizedBox(height: 24),
 
-              // Recent Transactions
               const Text(
                 'Transactions',
                 style: TextStyle(
@@ -237,43 +283,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                   ),
                 )
               else
-                ..._salesInRange.take(10).map((sale) {
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryGreen.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.receipt,
-                          color: AppTheme.primaryGreen,
-                          size: 20,
-                        ),
-                      ),
-                      title: Text(
-                        DateFormat('dd MMM, HH:mm').format(sale.createdAt),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      subtitle: Text(
-                        sale.paymentMethod ?? 'Unknown',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      trailing: Text(
-                        _formatKsh(sale.totalAmountMinor),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textDark,
-                        ),
-                      ),
-                    ),
-                  );
-                }),
+                ..._salesInRange.take(20).map(_buildTransactionTile),
               const SizedBox(height: 40),
             ],
           ),
@@ -282,8 +292,136 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     );
   }
 
+  Widget _buildTransactionTile(Sale sale) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryGreen.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.receipt,
+            color: AppTheme.primaryGreen,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          DateFormat('dd MMM, HH:mm').format(sale.createdAt),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+        subtitle: Text(
+          sale.paymentMethod ?? 'Unknown',
+          style: const TextStyle(fontSize: 12),
+        ),
+        trailing: Text(
+          _formatKsh(sale.totalAmountMinor),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textDark,
+          ),
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 1),
+          const SizedBox(height: 8),
+          FutureBuilder<List<_SaleLine>>(
+            future: _loadSaleLines(sale.id),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                );
+              }
+
+              final lines = snapshot.data!;
+              if (lines.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text('No line items recorded.'),
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Items sold',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: AppTheme.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...lines.map((line) {
+                    final qty = line.quantity;
+                    final qtyLabel = qty % 1 == 0
+                        ? qty.toStringAsFixed(0)
+                        : qty.toStringAsFixed(2);
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              line.productName,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                          Text(
+                            '$qtyLabel × ${_formatKsh(line.unitPriceMinor)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textLight,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 90,
+                            child: Text(
+                              _formatKsh(line.lineTotalMinor),
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMetricCard(
-      String title, String value, Color color, IconData icon) {
+      String title,
+      String value,
+      Color color,
+      IconData icon,
+      ) {
     return Expanded(
       child: Card(
         child: Padding(
@@ -301,7 +439,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               ),
               const SizedBox(height: 12),
               Text(title,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textLight)),
+                  style: const TextStyle(
+                      fontSize: 12, color: AppTheme.textLight)),
               const SizedBox(height: 4),
               Text(
                 value,
@@ -340,7 +479,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
         ),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           rightTitles:
           const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           leftTitles: AxisTitles(
@@ -395,4 +535,18 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
       ),
     );
   }
+}
+
+class _SaleLine {
+  final String productName;
+  final double quantity;
+  final int unitPriceMinor;
+  final int lineTotalMinor;
+
+  _SaleLine({
+    required this.productName,
+    required this.quantity,
+    required this.unitPriceMinor,
+    required this.lineTotalMinor,
+  });
 }

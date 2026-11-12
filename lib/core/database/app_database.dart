@@ -13,13 +13,14 @@ part 'app_database.g.dart';
     SaleItems,
     StockMovements,
     Users,
+    HeldOrders,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase()
       : super(
     driftDatabase(
-      name: 'craft_pos',
+      name: 'Craft Business',
       web: DriftWebOptions(
         sqlite3Wasm: Uri.parse('sqlite3.wasm'),
         driftWorker: Uri.parse('drift_worker.dart.js'),
@@ -28,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -40,6 +41,7 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await m.addColumn(businesses, businesses.imagePath);
       }
+      if (from < 4) await m.createTable(heldOrders);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -47,7 +49,12 @@ class AppDatabase extends _$AppDatabase {
   );
 
   // ─── Dashboard Metrics ────────────────────────────────────────────
-
+  Future<String?> getProductName(String productId) async {
+    final row = await (select(products)
+      ..where((p) => p.id.equals(productId)))
+        .getSingleOrNull();
+    return row?.name;
+  }
   Future<int> getBusinessCount() async =>
       (await select(businesses).get()).length;
 
