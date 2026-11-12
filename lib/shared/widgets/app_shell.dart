@@ -43,7 +43,7 @@ class AppShell extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(
             title: const Text(
-              'Craft POS',
+              'Craft Business',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
               ),

@@ -16,7 +16,7 @@ class _SplashScreensState extends State<SplashScreens> {
 
   final List<Map<String, dynamic>> _splashData = [
     {
-      'title': 'Welcome to Craft POS',
+      'title': 'Welcome to Craft Business',
       'description': 'The offline-first point of sale designed for Kenyan shops. No internet? No problem.',
       'icon': Icons.storefront,
       'color': AppTheme.primaryGreen,

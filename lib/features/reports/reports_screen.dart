@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:drift/drift.dart' hide Column;
+
 import '../../core/database/app_database.dart';
+import '../../core/providers/database_provider.dart';
 import '../../core/providers/report_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/pdf_helper.dart';
 
-class ReportsScreen extends StatefulWidget {
+class ReportsScreen extends ConsumerStatefulWidget {
   final ReportProvider provider;
   const ReportsScreen({super.key, required this.provider});
 
   @override
-  State<ReportsScreen> createState() => _ReportsScreenState();
+  ConsumerState<ReportsScreen> createState() => _ReportsScreenState();
 }
 
-class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProviderStateMixin {
+class _ReportsScreenState extends ConsumerState<ReportsScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   Map<String, int> _summary = {};
   List<Map<String, dynamic>> _trend = [];
@@ -23,13 +28,30 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
   DateTime _start = DateTime.now();
   DateTime _end = DateTime.now();
   String _periodLabel = 'Today';
+  String _businessName = 'My Shop'; // ⭐ loaded from DB
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_onTabChanged);
+    _loadBusinessName();
     _loadData(0);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  /// ⭐ Fetch the business name from the database
+  Future<void> _loadBusinessName() async {
+    final db = ref.read(databaseProvider);
+    final biz = await db.select(db.businesses).getSingleOrNull();
+    if (biz != null && mounted) {
+      setState(() => _businessName = biz.name);
+    }
   }
 
   void _onTabChanged() {
@@ -49,21 +71,18 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
     List<Sale> sales;
 
     if (tabIndex == 0) {
-      // Today
       summary = await widget.provider.getDailySummary();
       trend = await widget.provider.getSalesTrend();
       _start = today;
       _end = today.add(const Duration(days: 1));
       _periodLabel = 'Today';
     } else if (tabIndex == 1) {
-      // Weekly
       summary = await widget.provider.getWeeklySummary();
       trend = await widget.provider.getSalesTrend();
       _start = today.subtract(const Duration(days: 6));
       _end = today.add(const Duration(days: 1));
       _periodLabel = 'Last 7 Days';
     } else {
-      // Monthly
       summary = await widget.provider.getMonthlySummary();
       trend = await widget.provider.getSalesTrend();
       _start = today.subtract(const Duration(days: 29));
@@ -73,6 +92,7 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
 
     sales = await widget.provider.getSalesInRange(_start, _end);
 
+    if (!mounted) return;
     setState(() {
       _summary = summary;
       _trend = trend;
@@ -82,9 +102,9 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
   }
 
   Future<void> _exportPdf() async {
-    final businessName = 'My Shop'; // You can fetch from db if needed
+    // ⭐ Use the real business name loaded from DB
     await PdfHelper.generateSalesReport(
-      businessName: businessName,
+      businessName: _businessName,
       sales: _salesInRange,
       summary: _summary,
       start: _start,
@@ -92,13 +112,14 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
     );
   }
 
-  String _formatKsh(int minorUnits) => 'KSh ${(minorUnits / 100).toStringAsFixed(2)}';
+  String _formatKsh(int minorUnits) =>
+      'KSh ${(minorUnits / 100).toStringAsFixed(2)}';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reports'),
+        title: Text(_businessName.isNotEmpty ? _businessName : 'Reports'),
         actions: [
           IconButton(
             icon: const Icon(Icons.picture_as_pdf, color: AppTheme.primaryGreen),
@@ -127,10 +148,13 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Period Label
               Text(
                 'Period: $_periodLabel',
-                style: const TextStyle(fontSize: 14, color: AppTheme.textLight, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textLight,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -175,16 +199,17 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
               // Sales Trend Chart
               const Text(
                 'Sales Trend (Last 7 Days)',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
               ),
               const SizedBox(height: 16),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: SizedBox(
-                    height: 220,
-                    child: _buildChart(),
-                  ),
+                  child: SizedBox(height: 220, child: _buildChart()),
                 ),
               ),
               const SizedBox(height: 24),
@@ -192,7 +217,11 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
               // Recent Transactions
               const Text(
                 'Transactions',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
               ),
               const SizedBox(height: 12),
               if (_salesInRange.isEmpty)
@@ -200,7 +229,10 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
                   child: Padding(
                     padding: EdgeInsets.all(24),
                     child: Center(
-                      child: Text('No transactions for this period', style: TextStyle(color: AppTheme.textLight)),
+                      child: Text(
+                        'No transactions for this period',
+                        style: TextStyle(color: AppTheme.textLight),
+                      ),
                     ),
                   ),
                 )
@@ -215,20 +247,33 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
                           color: AppTheme.primaryGreen.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.receipt, color: AppTheme.primaryGreen, size: 20),
+                        child: const Icon(
+                          Icons.receipt,
+                          color: AppTheme.primaryGreen,
+                          size: 20,
+                        ),
                       ),
                       title: Text(
                         DateFormat('dd MMM, HH:mm').format(sale.createdAt),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
-                      subtitle: Text(sale.paymentMethod ?? 'Unknown', style: const TextStyle(fontSize: 12)),
+                      subtitle: Text(
+                        sale.paymentMethod ?? 'Unknown',
+                        style: const TextStyle(fontSize: 12),
+                      ),
                       trailing: Text(
                         _formatKsh(sale.totalAmountMinor),
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textDark,
+                        ),
                       ),
                     ),
                   );
-                }).toList(),
+                }),
               const SizedBox(height: 40),
             ],
           ),
@@ -237,7 +282,8 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildMetricCard(String title, String value, Color color, IconData icon) {
+  Widget _buildMetricCard(
+      String title, String value, Color color, IconData icon) {
     return Expanded(
       child: Card(
         child: Padding(
@@ -254,9 +300,17 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
                 child: Icon(icon, color: color, size: 20),
               ),
               const SizedBox(height: 12),
-              Text(title, style: const TextStyle(fontSize: 12, color: AppTheme.textLight)),
+              Text(title,
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textLight)),
               const SizedBox(height: 4),
-              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
+              ),
             ],
           ),
         ),
@@ -281,19 +335,22 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
           show: true,
           drawVerticalLine: false,
           horizontalInterval: safeMaxY / 4,
-          getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+          getDrawingHorizontalLine: (value) =>
+              FlLine(color: Colors.grey.shade200, strokeWidth: 1),
         ),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 44,
               getTitlesWidget: (value, meta) => Text(
                 '${value.toInt()}',
-                style: const TextStyle(fontSize: 10, color: AppTheme.textLight),
+                style: const TextStyle(
+                    fontSize: 10, color: AppTheme.textLight),
               ),
             ),
           ),
@@ -303,12 +360,15 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
               reservedSize: 28,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
-                if (index < 0 || index >= _trend.length) return const SizedBox();
+                if (index < 0 || index >= _trend.length) {
+                  return const SizedBox();
+                }
                 return Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     _trend[index]['label'],
-                    style: const TextStyle(fontSize: 10, color: AppTheme.textLight),
+                    style: const TextStyle(
+                        fontSize: 10, color: AppTheme.textLight),
                   ),
                 );
               },
@@ -325,7 +385,9 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
                 toY: total,
                 color: AppTheme.primaryGreen,
                 width: 18,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(4),
+                ),
               ),
             ],
           );
