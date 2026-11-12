@@ -124,6 +124,7 @@ class Expenses extends Table {
       text().references(Businesses, #id, onDelete: KeyAction.cascade)();
   TextColumn get name => text()();                         // e.g. "Rent", "Electricity"
   IntColumn get amountMinor => integer().withDefault(const Constant(0))();
+  IntColumn get paidAmountMinor => integer().withDefault(const Constant(0))();
   TextColumn get category => text().withDefault(const Constant('general'))(); // rent, salary, utility, other
   TextColumn get status => text().withDefault(const Constant('paid'))();      // paid, pending
   BoolColumn get isRecurring => boolean().withDefault(const Constant(false))();
@@ -145,6 +146,7 @@ class RecurringExpenses extends Table {
   IntColumn get amountMinor => integer().withDefault(const Constant(0))();
   TextColumn get category => text().withDefault(const Constant('general'))();
   TextColumn get period => text().withDefault(const Constant('monthly'))(); // daily, weekly, monthly, yearly
+  DateTimeColumn get nextDueDate => dateTime().nullable()();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
   DateTimeColumn get lastChargedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();

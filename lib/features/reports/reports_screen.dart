@@ -190,6 +190,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               ),
               const SizedBox(height: 16),
 
+              // ─── Metric cards 2×2 ───
               Row(
                 children: [
                   _buildMetricCard(
@@ -231,6 +232,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               _buildMoneyPositionCard(),
               const SizedBox(height: 24),
 
+              // ─── Held orders ───
               if (_heldOrders.isNotEmpty) ...[
                 Card(
                   color: Colors.orange.withValues(alpha: 0.1),
@@ -253,6 +255,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                 const SizedBox(height: 24),
               ],
 
+              // ─── Sales trend chart ───
               const Text(
                 'Sales Trend (Last 7 Days)',
                 style: TextStyle(
@@ -270,6 +273,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               ),
               const SizedBox(height: 24),
 
+              // ─── Transactions ───
               const Text(
                 'Transactions',
                 style: TextStyle(
@@ -286,8 +290,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                     child: Center(
                       child: Text(
                         'No transactions for this period',
-                        style:
-                        TextStyle(color: AppTheme.textLight),
+                        style: TextStyle(color: AppTheme.textLight),
                       ),
                     ),
                   ),
@@ -302,8 +305,10 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     );
   }
 
+  // ─── Money Position card ───
   Widget _buildMoneyPositionCard() {
-    final net = (_summary['sales'] ?? 0) - _expensePaid;
+    final sales = _summary['sales'] ?? 0;
+    final net = sales - _expensePaid;
 
     return Card(
       color: AppTheme.primaryGreen.withValues(alpha: 0.05),
@@ -323,7 +328,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
             const SizedBox(height: 12),
             _positionRow(
               'Money In (Sales)',
-              _formatKsh(_summary['sales'] ?? 0),
+              _formatKsh(sales),
               Colors.green,
             ),
             _positionRow(
@@ -332,7 +337,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               Colors.red,
             ),
             _positionRow(
-              'Pending Expenses',
+              'Pending Balances',
               _formatKsh(_expensePending),
               Colors.orange,
               sub: true,
@@ -343,6 +348,16 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               _formatKsh(net),
               AppTheme.primaryGreen,
               bold: true,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              net >= 0
+                  ? 'You are cash-positive for this period.'
+                  : 'You are cash-negative for this period.',
+              style: TextStyle(
+                fontSize: 11,
+                color: net >= 0 ? Colors.green : Colors.red,
+              ),
             ),
           ],
         ),
@@ -378,6 +393,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     );
   }
 
+  // ─── Transaction tile ───
   Widget _buildTransactionTile(Sale sale) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -502,6 +518,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     );
   }
 
+  // ─── Metric card ───
   Widget _buildMetricCard(
       String title,
       String value,
@@ -543,6 +560,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     );
   }
 
+  // ─── Sales trend chart ───
   Widget _buildChart() {
     if (_trend.isEmpty) return const Center(child: Text('No data'));
 

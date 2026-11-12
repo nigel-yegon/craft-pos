@@ -4150,6 +4150,18 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _paidAmountMinorMeta = const VerificationMeta(
+    'paidAmountMinor',
+  );
+  @override
+  late final GeneratedColumn<int> paidAmountMinor = GeneratedColumn<int>(
+    'paid_amount_minor',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _categoryMeta = const VerificationMeta(
     'category',
   );
@@ -4245,6 +4257,7 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
     businessId,
     name,
     amountMinor,
+    paidAmountMinor,
     category,
     status,
     isRecurring,
@@ -4293,6 +4306,15 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
         amountMinor.isAcceptableOrUnknown(
           data['amount_minor']!,
           _amountMinorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('paid_amount_minor')) {
+      context.handle(
+        _paidAmountMinorMeta,
+        paidAmountMinor.isAcceptableOrUnknown(
+          data['paid_amount_minor']!,
+          _paidAmountMinorMeta,
         ),
       );
     }
@@ -4379,6 +4401,11 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
             DriftSqlType.int,
             data['${effectivePrefix}amount_minor'],
           )!,
+      paidAmountMinor:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}paid_amount_minor'],
+          )!,
       category:
           attachedDatabase.typeMapping.read(
             DriftSqlType.string,
@@ -4429,6 +4456,7 @@ class Expense extends DataClass implements Insertable<Expense> {
   final String businessId;
   final String name;
   final int amountMinor;
+  final int paidAmountMinor;
   final String category;
   final String status;
   final bool isRecurring;
@@ -4442,6 +4470,7 @@ class Expense extends DataClass implements Insertable<Expense> {
     required this.businessId,
     required this.name,
     required this.amountMinor,
+    required this.paidAmountMinor,
     required this.category,
     required this.status,
     required this.isRecurring,
@@ -4458,6 +4487,7 @@ class Expense extends DataClass implements Insertable<Expense> {
     map['business_id'] = Variable<String>(businessId);
     map['name'] = Variable<String>(name);
     map['amount_minor'] = Variable<int>(amountMinor);
+    map['paid_amount_minor'] = Variable<int>(paidAmountMinor);
     map['category'] = Variable<String>(category);
     map['status'] = Variable<String>(status);
     map['is_recurring'] = Variable<bool>(isRecurring);
@@ -4483,6 +4513,7 @@ class Expense extends DataClass implements Insertable<Expense> {
       businessId: Value(businessId),
       name: Value(name),
       amountMinor: Value(amountMinor),
+      paidAmountMinor: Value(paidAmountMinor),
       category: Value(category),
       status: Value(status),
       isRecurring: Value(isRecurring),
@@ -4511,6 +4542,7 @@ class Expense extends DataClass implements Insertable<Expense> {
       businessId: serializer.fromJson<String>(json['businessId']),
       name: serializer.fromJson<String>(json['name']),
       amountMinor: serializer.fromJson<int>(json['amountMinor']),
+      paidAmountMinor: serializer.fromJson<int>(json['paidAmountMinor']),
       category: serializer.fromJson<String>(json['category']),
       status: serializer.fromJson<String>(json['status']),
       isRecurring: serializer.fromJson<bool>(json['isRecurring']),
@@ -4529,6 +4561,7 @@ class Expense extends DataClass implements Insertable<Expense> {
       'businessId': serializer.toJson<String>(businessId),
       'name': serializer.toJson<String>(name),
       'amountMinor': serializer.toJson<int>(amountMinor),
+      'paidAmountMinor': serializer.toJson<int>(paidAmountMinor),
       'category': serializer.toJson<String>(category),
       'status': serializer.toJson<String>(status),
       'isRecurring': serializer.toJson<bool>(isRecurring),
@@ -4545,6 +4578,7 @@ class Expense extends DataClass implements Insertable<Expense> {
     String? businessId,
     String? name,
     int? amountMinor,
+    int? paidAmountMinor,
     String? category,
     String? status,
     bool? isRecurring,
@@ -4558,6 +4592,7 @@ class Expense extends DataClass implements Insertable<Expense> {
     businessId: businessId ?? this.businessId,
     name: name ?? this.name,
     amountMinor: amountMinor ?? this.amountMinor,
+    paidAmountMinor: paidAmountMinor ?? this.paidAmountMinor,
     category: category ?? this.category,
     status: status ?? this.status,
     isRecurring: isRecurring ?? this.isRecurring,
@@ -4576,6 +4611,10 @@ class Expense extends DataClass implements Insertable<Expense> {
       name: data.name.present ? data.name.value : this.name,
       amountMinor:
           data.amountMinor.present ? data.amountMinor.value : this.amountMinor,
+      paidAmountMinor:
+          data.paidAmountMinor.present
+              ? data.paidAmountMinor.value
+              : this.paidAmountMinor,
       category: data.category.present ? data.category.value : this.category,
       status: data.status.present ? data.status.value : this.status,
       isRecurring:
@@ -4598,6 +4637,7 @@ class Expense extends DataClass implements Insertable<Expense> {
           ..write('businessId: $businessId, ')
           ..write('name: $name, ')
           ..write('amountMinor: $amountMinor, ')
+          ..write('paidAmountMinor: $paidAmountMinor, ')
           ..write('category: $category, ')
           ..write('status: $status, ')
           ..write('isRecurring: $isRecurring, ')
@@ -4616,6 +4656,7 @@ class Expense extends DataClass implements Insertable<Expense> {
     businessId,
     name,
     amountMinor,
+    paidAmountMinor,
     category,
     status,
     isRecurring,
@@ -4633,6 +4674,7 @@ class Expense extends DataClass implements Insertable<Expense> {
           other.businessId == this.businessId &&
           other.name == this.name &&
           other.amountMinor == this.amountMinor &&
+          other.paidAmountMinor == this.paidAmountMinor &&
           other.category == this.category &&
           other.status == this.status &&
           other.isRecurring == this.isRecurring &&
@@ -4648,6 +4690,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
   final Value<String> businessId;
   final Value<String> name;
   final Value<int> amountMinor;
+  final Value<int> paidAmountMinor;
   final Value<String> category;
   final Value<String> status;
   final Value<bool> isRecurring;
@@ -4662,6 +4705,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     this.businessId = const Value.absent(),
     this.name = const Value.absent(),
     this.amountMinor = const Value.absent(),
+    this.paidAmountMinor = const Value.absent(),
     this.category = const Value.absent(),
     this.status = const Value.absent(),
     this.isRecurring = const Value.absent(),
@@ -4677,6 +4721,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     required String businessId,
     required String name,
     this.amountMinor = const Value.absent(),
+    this.paidAmountMinor = const Value.absent(),
     this.category = const Value.absent(),
     this.status = const Value.absent(),
     this.isRecurring = const Value.absent(),
@@ -4694,6 +4739,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     Expression<String>? businessId,
     Expression<String>? name,
     Expression<int>? amountMinor,
+    Expression<int>? paidAmountMinor,
     Expression<String>? category,
     Expression<String>? status,
     Expression<bool>? isRecurring,
@@ -4709,6 +4755,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
       if (businessId != null) 'business_id': businessId,
       if (name != null) 'name': name,
       if (amountMinor != null) 'amount_minor': amountMinor,
+      if (paidAmountMinor != null) 'paid_amount_minor': paidAmountMinor,
       if (category != null) 'category': category,
       if (status != null) 'status': status,
       if (isRecurring != null) 'is_recurring': isRecurring,
@@ -4726,6 +4773,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     Value<String>? businessId,
     Value<String>? name,
     Value<int>? amountMinor,
+    Value<int>? paidAmountMinor,
     Value<String>? category,
     Value<String>? status,
     Value<bool>? isRecurring,
@@ -4741,6 +4789,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
       businessId: businessId ?? this.businessId,
       name: name ?? this.name,
       amountMinor: amountMinor ?? this.amountMinor,
+      paidAmountMinor: paidAmountMinor ?? this.paidAmountMinor,
       category: category ?? this.category,
       status: status ?? this.status,
       isRecurring: isRecurring ?? this.isRecurring,
@@ -4767,6 +4816,9 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     }
     if (amountMinor.present) {
       map['amount_minor'] = Variable<int>(amountMinor.value);
+    }
+    if (paidAmountMinor.present) {
+      map['paid_amount_minor'] = Variable<int>(paidAmountMinor.value);
     }
     if (category.present) {
       map['category'] = Variable<String>(category.value);
@@ -4805,6 +4857,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
           ..write('businessId: $businessId, ')
           ..write('name: $name, ')
           ..write('amountMinor: $amountMinor, ')
+          ..write('paidAmountMinor: $paidAmountMinor, ')
           ..write('category: $category, ')
           ..write('status: $status, ')
           ..write('isRecurring: $isRecurring, ')
@@ -4891,6 +4944,17 @@ class $RecurringExpensesTable extends RecurringExpenses
     requiredDuringInsert: false,
     defaultValue: const Constant('monthly'),
   );
+  static const VerificationMeta _nextDueDateMeta = const VerificationMeta(
+    'nextDueDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> nextDueDate = GeneratedColumn<DateTime>(
+    'next_due_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isActiveMeta = const VerificationMeta(
     'isActive',
   );
@@ -4938,6 +5002,7 @@ class $RecurringExpensesTable extends RecurringExpenses
     amountMinor,
     category,
     period,
+    nextDueDate,
     isActive,
     lastChargedAt,
     createdAt,
@@ -4994,6 +5059,15 @@ class $RecurringExpensesTable extends RecurringExpenses
       context.handle(
         _periodMeta,
         period.isAcceptableOrUnknown(data['period']!, _periodMeta),
+      );
+    }
+    if (data.containsKey('next_due_date')) {
+      context.handle(
+        _nextDueDateMeta,
+        nextDueDate.isAcceptableOrUnknown(
+          data['next_due_date']!,
+          _nextDueDateMeta,
+        ),
       );
     }
     if (data.containsKey('is_active')) {
@@ -5056,6 +5130,10 @@ class $RecurringExpensesTable extends RecurringExpenses
             DriftSqlType.string,
             data['${effectivePrefix}period'],
           )!,
+      nextDueDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}next_due_date'],
+      ),
       isActive:
           attachedDatabase.typeMapping.read(
             DriftSqlType.bool,
@@ -5087,6 +5165,7 @@ class RecurringExpense extends DataClass
   final int amountMinor;
   final String category;
   final String period;
+  final DateTime? nextDueDate;
   final bool isActive;
   final DateTime? lastChargedAt;
   final DateTime createdAt;
@@ -5097,6 +5176,7 @@ class RecurringExpense extends DataClass
     required this.amountMinor,
     required this.category,
     required this.period,
+    this.nextDueDate,
     required this.isActive,
     this.lastChargedAt,
     required this.createdAt,
@@ -5110,6 +5190,9 @@ class RecurringExpense extends DataClass
     map['amount_minor'] = Variable<int>(amountMinor);
     map['category'] = Variable<String>(category);
     map['period'] = Variable<String>(period);
+    if (!nullToAbsent || nextDueDate != null) {
+      map['next_due_date'] = Variable<DateTime>(nextDueDate);
+    }
     map['is_active'] = Variable<bool>(isActive);
     if (!nullToAbsent || lastChargedAt != null) {
       map['last_charged_at'] = Variable<DateTime>(lastChargedAt);
@@ -5126,6 +5209,10 @@ class RecurringExpense extends DataClass
       amountMinor: Value(amountMinor),
       category: Value(category),
       period: Value(period),
+      nextDueDate:
+          nextDueDate == null && nullToAbsent
+              ? const Value.absent()
+              : Value(nextDueDate),
       isActive: Value(isActive),
       lastChargedAt:
           lastChargedAt == null && nullToAbsent
@@ -5147,6 +5234,7 @@ class RecurringExpense extends DataClass
       amountMinor: serializer.fromJson<int>(json['amountMinor']),
       category: serializer.fromJson<String>(json['category']),
       period: serializer.fromJson<String>(json['period']),
+      nextDueDate: serializer.fromJson<DateTime?>(json['nextDueDate']),
       isActive: serializer.fromJson<bool>(json['isActive']),
       lastChargedAt: serializer.fromJson<DateTime?>(json['lastChargedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -5162,6 +5250,7 @@ class RecurringExpense extends DataClass
       'amountMinor': serializer.toJson<int>(amountMinor),
       'category': serializer.toJson<String>(category),
       'period': serializer.toJson<String>(period),
+      'nextDueDate': serializer.toJson<DateTime?>(nextDueDate),
       'isActive': serializer.toJson<bool>(isActive),
       'lastChargedAt': serializer.toJson<DateTime?>(lastChargedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -5175,6 +5264,7 @@ class RecurringExpense extends DataClass
     int? amountMinor,
     String? category,
     String? period,
+    Value<DateTime?> nextDueDate = const Value.absent(),
     bool? isActive,
     Value<DateTime?> lastChargedAt = const Value.absent(),
     DateTime? createdAt,
@@ -5185,6 +5275,7 @@ class RecurringExpense extends DataClass
     amountMinor: amountMinor ?? this.amountMinor,
     category: category ?? this.category,
     period: period ?? this.period,
+    nextDueDate: nextDueDate.present ? nextDueDate.value : this.nextDueDate,
     isActive: isActive ?? this.isActive,
     lastChargedAt:
         lastChargedAt.present ? lastChargedAt.value : this.lastChargedAt,
@@ -5200,6 +5291,8 @@ class RecurringExpense extends DataClass
           data.amountMinor.present ? data.amountMinor.value : this.amountMinor,
       category: data.category.present ? data.category.value : this.category,
       period: data.period.present ? data.period.value : this.period,
+      nextDueDate:
+          data.nextDueDate.present ? data.nextDueDate.value : this.nextDueDate,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
       lastChargedAt:
           data.lastChargedAt.present
@@ -5218,6 +5311,7 @@ class RecurringExpense extends DataClass
           ..write('amountMinor: $amountMinor, ')
           ..write('category: $category, ')
           ..write('period: $period, ')
+          ..write('nextDueDate: $nextDueDate, ')
           ..write('isActive: $isActive, ')
           ..write('lastChargedAt: $lastChargedAt, ')
           ..write('createdAt: $createdAt')
@@ -5233,6 +5327,7 @@ class RecurringExpense extends DataClass
     amountMinor,
     category,
     period,
+    nextDueDate,
     isActive,
     lastChargedAt,
     createdAt,
@@ -5247,6 +5342,7 @@ class RecurringExpense extends DataClass
           other.amountMinor == this.amountMinor &&
           other.category == this.category &&
           other.period == this.period &&
+          other.nextDueDate == this.nextDueDate &&
           other.isActive == this.isActive &&
           other.lastChargedAt == this.lastChargedAt &&
           other.createdAt == this.createdAt);
@@ -5259,6 +5355,7 @@ class RecurringExpensesCompanion extends UpdateCompanion<RecurringExpense> {
   final Value<int> amountMinor;
   final Value<String> category;
   final Value<String> period;
+  final Value<DateTime?> nextDueDate;
   final Value<bool> isActive;
   final Value<DateTime?> lastChargedAt;
   final Value<DateTime> createdAt;
@@ -5270,6 +5367,7 @@ class RecurringExpensesCompanion extends UpdateCompanion<RecurringExpense> {
     this.amountMinor = const Value.absent(),
     this.category = const Value.absent(),
     this.period = const Value.absent(),
+    this.nextDueDate = const Value.absent(),
     this.isActive = const Value.absent(),
     this.lastChargedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -5282,6 +5380,7 @@ class RecurringExpensesCompanion extends UpdateCompanion<RecurringExpense> {
     this.amountMinor = const Value.absent(),
     this.category = const Value.absent(),
     this.period = const Value.absent(),
+    this.nextDueDate = const Value.absent(),
     this.isActive = const Value.absent(),
     this.lastChargedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -5296,6 +5395,7 @@ class RecurringExpensesCompanion extends UpdateCompanion<RecurringExpense> {
     Expression<int>? amountMinor,
     Expression<String>? category,
     Expression<String>? period,
+    Expression<DateTime>? nextDueDate,
     Expression<bool>? isActive,
     Expression<DateTime>? lastChargedAt,
     Expression<DateTime>? createdAt,
@@ -5308,6 +5408,7 @@ class RecurringExpensesCompanion extends UpdateCompanion<RecurringExpense> {
       if (amountMinor != null) 'amount_minor': amountMinor,
       if (category != null) 'category': category,
       if (period != null) 'period': period,
+      if (nextDueDate != null) 'next_due_date': nextDueDate,
       if (isActive != null) 'is_active': isActive,
       if (lastChargedAt != null) 'last_charged_at': lastChargedAt,
       if (createdAt != null) 'created_at': createdAt,
@@ -5322,6 +5423,7 @@ class RecurringExpensesCompanion extends UpdateCompanion<RecurringExpense> {
     Value<int>? amountMinor,
     Value<String>? category,
     Value<String>? period,
+    Value<DateTime?>? nextDueDate,
     Value<bool>? isActive,
     Value<DateTime?>? lastChargedAt,
     Value<DateTime>? createdAt,
@@ -5334,6 +5436,7 @@ class RecurringExpensesCompanion extends UpdateCompanion<RecurringExpense> {
       amountMinor: amountMinor ?? this.amountMinor,
       category: category ?? this.category,
       period: period ?? this.period,
+      nextDueDate: nextDueDate ?? this.nextDueDate,
       isActive: isActive ?? this.isActive,
       lastChargedAt: lastChargedAt ?? this.lastChargedAt,
       createdAt: createdAt ?? this.createdAt,
@@ -5362,6 +5465,9 @@ class RecurringExpensesCompanion extends UpdateCompanion<RecurringExpense> {
     if (period.present) {
       map['period'] = Variable<String>(period.value);
     }
+    if (nextDueDate.present) {
+      map['next_due_date'] = Variable<DateTime>(nextDueDate.value);
+    }
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
@@ -5386,6 +5492,7 @@ class RecurringExpensesCompanion extends UpdateCompanion<RecurringExpense> {
           ..write('amountMinor: $amountMinor, ')
           ..write('category: $category, ')
           ..write('period: $period, ')
+          ..write('nextDueDate: $nextDueDate, ')
           ..write('isActive: $isActive, ')
           ..write('lastChargedAt: $lastChargedAt, ')
           ..write('createdAt: $createdAt, ')
@@ -9807,6 +9914,7 @@ typedef $$ExpensesTableCreateCompanionBuilder =
       required String businessId,
       required String name,
       Value<int> amountMinor,
+      Value<int> paidAmountMinor,
       Value<String> category,
       Value<String> status,
       Value<bool> isRecurring,
@@ -9823,6 +9931,7 @@ typedef $$ExpensesTableUpdateCompanionBuilder =
       Value<String> businessId,
       Value<String> name,
       Value<int> amountMinor,
+      Value<int> paidAmountMinor,
       Value<String> category,
       Value<String> status,
       Value<bool> isRecurring,
@@ -9877,6 +9986,11 @@ class $$ExpensesTableFilterComposer
 
   ColumnFilters<int> get amountMinor => $composableBuilder(
     column: $table.amountMinor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get paidAmountMinor => $composableBuilder(
+    column: $table.paidAmountMinor,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9968,6 +10082,11 @@ class $$ExpensesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get paidAmountMinor => $composableBuilder(
+    column: $table.paidAmountMinor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get category => $composableBuilder(
     column: $table.category,
     builder: (column) => ColumnOrderings(column),
@@ -10049,6 +10168,11 @@ class $$ExpensesTableAnnotationComposer
 
   GeneratedColumn<int> get amountMinor => $composableBuilder(
     column: $table.amountMinor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get paidAmountMinor => $composableBuilder(
+    column: $table.paidAmountMinor,
     builder: (column) => column,
   );
 
@@ -10136,6 +10260,7 @@ class $$ExpensesTableTableManager
                 Value<String> businessId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<int> amountMinor = const Value.absent(),
+                Value<int> paidAmountMinor = const Value.absent(),
                 Value<String> category = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<bool> isRecurring = const Value.absent(),
@@ -10150,6 +10275,7 @@ class $$ExpensesTableTableManager
                 businessId: businessId,
                 name: name,
                 amountMinor: amountMinor,
+                paidAmountMinor: paidAmountMinor,
                 category: category,
                 status: status,
                 isRecurring: isRecurring,
@@ -10166,6 +10292,7 @@ class $$ExpensesTableTableManager
                 required String businessId,
                 required String name,
                 Value<int> amountMinor = const Value.absent(),
+                Value<int> paidAmountMinor = const Value.absent(),
                 Value<String> category = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<bool> isRecurring = const Value.absent(),
@@ -10180,6 +10307,7 @@ class $$ExpensesTableTableManager
                 businessId: businessId,
                 name: name,
                 amountMinor: amountMinor,
+                paidAmountMinor: paidAmountMinor,
                 category: category,
                 status: status,
                 isRecurring: isRecurring,
@@ -10267,6 +10395,7 @@ typedef $$RecurringExpensesTableCreateCompanionBuilder =
       Value<int> amountMinor,
       Value<String> category,
       Value<String> period,
+      Value<DateTime?> nextDueDate,
       Value<bool> isActive,
       Value<DateTime?> lastChargedAt,
       Value<DateTime> createdAt,
@@ -10280,6 +10409,7 @@ typedef $$RecurringExpensesTableUpdateCompanionBuilder =
       Value<int> amountMinor,
       Value<String> category,
       Value<String> period,
+      Value<DateTime?> nextDueDate,
       Value<bool> isActive,
       Value<DateTime?> lastChargedAt,
       Value<DateTime> createdAt,
@@ -10348,6 +10478,11 @@ class $$RecurringExpensesTableFilterComposer
 
   ColumnFilters<String> get period => $composableBuilder(
     column: $table.period,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get nextDueDate => $composableBuilder(
+    column: $table.nextDueDate,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10424,6 +10559,11 @@ class $$RecurringExpensesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get nextDueDate => $composableBuilder(
+    column: $table.nextDueDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isActive => $composableBuilder(
     column: $table.isActive,
     builder: (column) => ColumnOrderings(column),
@@ -10488,6 +10628,11 @@ class $$RecurringExpensesTableAnnotationComposer
 
   GeneratedColumn<String> get period =>
       $composableBuilder(column: $table.period, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get nextDueDate => $composableBuilder(
+    column: $table.nextDueDate,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
@@ -10569,6 +10714,7 @@ class $$RecurringExpensesTableTableManager
                 Value<int> amountMinor = const Value.absent(),
                 Value<String> category = const Value.absent(),
                 Value<String> period = const Value.absent(),
+                Value<DateTime?> nextDueDate = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<DateTime?> lastChargedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -10580,6 +10726,7 @@ class $$RecurringExpensesTableTableManager
                 amountMinor: amountMinor,
                 category: category,
                 period: period,
+                nextDueDate: nextDueDate,
                 isActive: isActive,
                 lastChargedAt: lastChargedAt,
                 createdAt: createdAt,
@@ -10593,6 +10740,7 @@ class $$RecurringExpensesTableTableManager
                 Value<int> amountMinor = const Value.absent(),
                 Value<String> category = const Value.absent(),
                 Value<String> period = const Value.absent(),
+                Value<DateTime?> nextDueDate = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<DateTime?> lastChargedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -10604,6 +10752,7 @@ class $$RecurringExpensesTableTableManager
                 amountMinor: amountMinor,
                 category: category,
                 period: period,
+                nextDueDate: nextDueDate,
                 isActive: isActive,
                 lastChargedAt: lastChargedAt,
                 createdAt: createdAt,

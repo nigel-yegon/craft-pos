@@ -3,6 +3,7 @@ import '../../core/database/app_database.dart';
 import '../../core/providers/product_provider.dart';
 import '../../core/providers/sales_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/product_image.dart';
 import 'held_orders_screen.dart';
 
 class SalesScreen extends StatefulWidget {
@@ -22,7 +23,7 @@ class SalesScreen extends StatefulWidget {
 class _SalesScreenState extends State<SalesScreen> {
   final List<CartItem> _cart = [];
   String _searchQuery = '';
-  bool _cartExpanded = true; // ⭐ NEW: collapse state
+  bool _cartExpanded = true;
 
   int get _cartTotalMinor => _cart.fold(
     0,
@@ -54,7 +55,7 @@ class _SalesScreenState extends State<SalesScreen> {
     });
   }
 
-  // ─── Pay now (Cash or M-Pesa) ─────────────────────────────────────
+  // ─── Pay now ──────────────────────────────────────────────────────
   Future<void> _payNow() async {
     if (_cart.isEmpty) return;
 
@@ -162,7 +163,7 @@ class _SalesScreenState extends State<SalesScreen> {
     );
   }
 
-  // ─── Open Held Orders list ────────────────────────────────────────
+  // ─── Open Held Orders ────────────────────────────────────────────
   Future<void> _openHeldOrders() async {
     final result = await Navigator.push<List<CartItem>>(
       context,
@@ -200,10 +201,8 @@ class _SalesScreenState extends State<SalesScreen> {
       ),
       body: Stack(
         children: [
-          // ─── Main content (grid + optional cart) ───
           Positioned.fill(
             child: GestureDetector(
-              // Tapping empty space collapses the cart
               onTap: () {
                 if (_cartExpanded && _cart.isNotEmpty) {
                   setState(() => _cartExpanded = false);
@@ -249,8 +248,8 @@ class _SalesScreenState extends State<SalesScreen> {
             ),
           ),
 
-          // ─── Floating cart badge (only when collapsed & non-empty) ───
-          if (!_cartExpanded && _cart.isNotEmpty)
+          // ⭐ Floating cart pill — ALWAYS visible when collapsed
+          if (!_cartExpanded)
             Positioned(
               bottom: 20,
               right: 20,
@@ -261,21 +260,27 @@ class _SalesScreenState extends State<SalesScreen> {
     );
   }
 
-  // ─── Floating pill badge ──────────────────────────────────────────
+  // ─── Floating cart pill (always visible when collapsed) ──────────
   Widget _buildFloatingCartBadge() {
+    final isEmpty = _cart.isEmpty;
+
     return GestureDetector(
       onTap: () => setState(() => _cartExpanded = true),
       child: Material(
         elevation: 6,
         borderRadius: BorderRadius.circular(30),
-        color: AppTheme.primaryGreen,
+        color: isEmpty
+            ? Colors.grey.shade700
+            : AppTheme.primaryGreen,
         child: Container(
           padding:
           const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(30),
             gradient: LinearGradient(
-              colors: [
+              colors: isEmpty
+                  ? [Colors.grey.shade700, Colors.grey.shade600]
+                  : [
                 AppTheme.primaryGreen,
                 AppTheme.primaryGreen.withValues(alpha: 0.85),
               ],
@@ -289,30 +294,31 @@ class _SalesScreenState extends State<SalesScreen> {
                 children: [
                   const Icon(Icons.shopping_cart,
                       color: Colors.white, size: 26),
-                  Positioned(
-                    top: -6,
-                    right: -6,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 18,
-                        minHeight: 18,
-                      ),
-                      child: Text(
-                        '$_cartItemCount',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                  if (!isEmpty)
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          '$_cartItemCount',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(width: 12),
@@ -320,16 +326,18 @@ class _SalesScreenState extends State<SalesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'View Cart',
-                    style: TextStyle(
+                  Text(
+                    isEmpty ? 'Cart is empty' : 'View Cart',
+                    style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   Text(
-                    'KSh ${(_cartTotalMinor / 100).toStringAsFixed(2)}',
+                    isEmpty
+                        ? 'Tap to open'
+                        : 'KSh ${(_cartTotalMinor / 100).toStringAsFixed(2)}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 15,
@@ -378,7 +386,6 @@ class _SalesScreenState extends State<SalesScreen> {
             return GestureDetector(
               onTap: () {
                 _addToCart(p);
-                // Auto-expand the cart on first add
                 if (!_cartExpanded) {
                   setState(() => _cartExpanded = true);
                 }
@@ -390,14 +397,13 @@ class _SalesScreenState extends State<SalesScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
+                      SizedBox(
                         height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.image, color: Colors.grey),
+                        width: double.infinity,
+                        child: ProductImage(
+                          imagePath: p.imagePath,
+                          size: 60,
+                          borderRadius: 8,
                         ),
                       ),
                       Text(
@@ -443,7 +449,6 @@ class _SalesScreenState extends State<SalesScreen> {
                         style: TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(width: 8),
-                    // Collapse button
                     GestureDetector(
                       onTap: () =>
                           setState(() => _cartExpanded = false),

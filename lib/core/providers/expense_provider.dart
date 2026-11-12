@@ -40,24 +40,29 @@ class ExpenseProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateExpense({
-    required String id,
-    required String name,
+  /// Record a partial (or full) payment against an expense.
+  /// Adds [amountMinor] to the paid amount, caps it at the total,
+  /// and updates the status based on the resulting balance.
+  Future<void> recordPayment({
+    required String expenseId,
     required int amountMinor,
-    required String category,
-    required String status,
-    DateTime? dueDate,
-    String? note,
   }) async {
-    await (db.update(db.expenses)..where((e) => e.id.equals(id))).write(
+    final expense = await (db.select(db.expenses)
+      ..where((e) => e.id.equals(expenseId)))
+        .getSingleOrNull();
+    if (expense == null) return;
+
+    final newPaid = (expense.paidAmountMinor + amountMinor)
+        .clamp(0, expense.amountMinor);
+    final isFullyPaid = newPaid >= expense.amountMinor;
+    final newStatus = isFullyPaid ? 'paid' : 'partial';
+
+    await (db.update(db.expenses)..where((e) => e.id.equals(expenseId)))
+        .write(
       ExpensesCompanion(
-        name: drift.Value(name.trim()),
-        amountMinor: drift.Value(amountMinor),
-        category: drift.Value(category),
-        status: drift.Value(status),
-        dueDate: drift.Value(dueDate),
-        note: drift.Value(note),
-        paidAt: status == 'paid'
+        paidAmountMinor: drift.Value(newPaid),
+        status: drift.Value(newStatus),
+        paidAt: isFullyPaid
             ? drift.Value(DateTime.now())
             : const drift.Value.absent(),
       ),
@@ -66,8 +71,14 @@ class ExpenseProvider extends ChangeNotifier {
   }
 
   Future<void> markPaid(String id) async {
+    final expense = await (db.select(db.expenses)
+      ..where((e) => e.id.equals(id)))
+        .getSingleOrNull();
+    if (expense == null) return;
+
     await (db.update(db.expenses)..where((e) => e.id.equals(id))).write(
       ExpensesCompanion(
+        paidAmountMinor: drift.Value(expense.amountMinor),
         status: const drift.Value('paid'),
         paidAt: drift.Value(DateTime.now()),
       ),
@@ -92,6 +103,7 @@ class ExpenseProvider extends ChangeNotifier {
     required int amountMinor,
     required String category,
     required String period,
+    DateTime? nextDueDate,
   }) async {
     await db.into(db.recurringExpenses).insert(
       RecurringExpensesCompanion.insert(
@@ -101,6 +113,7 @@ class ExpenseProvider extends ChangeNotifier {
         amountMinor: drift.Value(amountMinor),
         category: drift.Value(category),
         period: drift.Value(period),
+        nextDueDate: drift.Value(nextDueDate),
       ),
     );
     notifyListeners();
@@ -112,14 +125,14 @@ class ExpenseProvider extends ChangeNotifier {
   }
 
   Future<void> toggleRecurringActive(String id, bool isActive) async {
-    await (db.update(db.recurringExpenses)..where((r) => r.id.equals(id))).write(
+    await (db.update(db.recurringExpenses)..where((r) => r.id.equals(id)))
+        .write(
       RecurringExpensesCompanion(isActive: drift.Value(isActive)),
     );
     notifyListeners();
   }
 
-  /// Materialize any due recurring expenses into real expenses.
-  /// Call this from Settings when the user opens the page.
+  /// Materialize due recurring expenses into real expense rows.
   Future<void> generateDueRecurringExpenses() async {
     final now = DateTime.now();
     final recurring = await (db.select(db.recurringExpenses)
@@ -128,39 +141,43 @@ class ExpenseProvider extends ChangeNotifier {
         .get();
 
     for (final r in recurring) {
-      bool due = false;
-      if (r.lastChargedAt == null) {
-        due = true;
-      } else {
-        final last = r.lastChargedAt!;
-        switch (r.period) {
-          case 'daily':
-            due = now.difference(last).inDays >= 1;
-            break;
-          case 'weekly':
-            due = now.difference(last).inDays >= 7;
-            break;
-          case 'monthly':
-            due = now.month != last.month || now.year != last.year;
-            break;
-          case 'yearly':
-            due = now.year != last.year;
-            break;
-        }
+      final dueDate = r.nextDueDate ?? now;
+      if (dueDate.isAfter(now)) continue;
+
+      // Create the pending expense row
+      await addExpense(
+        name: '${r.name} (recurring)',
+        amountMinor: r.amountMinor,
+        category: r.category,
+        status: 'pending',
+        dueDate: dueDate,
+      );
+
+      // Compute the next due date
+      DateTime next;
+      switch (r.period) {
+        case 'daily':
+          next = dueDate.add(const Duration(days: 1));
+          break;
+        case 'weekly':
+          next = dueDate.add(const Duration(days: 7));
+          break;
+        case 'yearly':
+          next = DateTime(dueDate.year + 1, dueDate.month, dueDate.day);
+          break;
+        case 'monthly':
+        default:
+          next = DateTime(dueDate.year, dueDate.month + 1, dueDate.day);
+          break;
       }
-      if (due) {
-        await addExpense(
-          name: '${r.name} (recurring)',
-          amountMinor: r.amountMinor,
-          category: r.category,
-          status: 'pending',
-          dueDate: now,
-        );
-        await (db.update(db.recurringExpenses)..where((x) => x.id.equals(r.id)))
-            .write(RecurringExpensesCompanion(
+
+      await (db.update(db.recurringExpenses)..where((x) => x.id.equals(r.id)))
+          .write(
+        RecurringExpensesCompanion(
           lastChargedAt: drift.Value(now),
-        ));
-      }
+          nextDueDate: drift.Value(next),
+        ),
+      );
     }
   }
 
@@ -169,9 +186,9 @@ class ExpenseProvider extends ChangeNotifier {
       DateTime start, DateTime end) async {
     final paidQuery = db.customSelect(
       '''
-      SELECT COALESCE(SUM(amount_minor), 0) AS total
+      SELECT COALESCE(SUM(paid_amount_minor), 0) AS total
       FROM expenses
-      WHERE business_id = ? AND status = 'paid'
+      WHERE business_id = ?
       AND created_at >= ? AND created_at < ?
       ''',
       variables: [
@@ -186,9 +203,9 @@ class ExpenseProvider extends ChangeNotifier {
 
     final pendingQuery = db.customSelect(
       '''
-      SELECT COALESCE(SUM(amount_minor), 0) AS total
+      SELECT COALESCE(SUM(amount_minor - paid_amount_minor), 0) AS total
       FROM expenses
-      WHERE business_id = ? AND status = 'pending'
+      WHERE business_id = ? AND status != 'paid'
       AND created_at >= ? AND created_at < ?
       ''',
       variables: [
