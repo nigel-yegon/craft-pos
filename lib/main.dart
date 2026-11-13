@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drift/drift.dart' as drift;
 import 'app.dart';
 import 'core/database/app_database.dart';
+import 'core/database/seed_data.dart';
 import 'core/providers/database_provider.dart';
 
 void main() async {
@@ -13,10 +14,14 @@ void main() async {
   final hasSeenSplash = prefs.getBool('hasSeenSplash') ?? false;
   final initialRoute = hasSeenSplash ? '/dashboard' : '/splash';
 
-  // 1. Create the single AppDatabase instance
   final database = AppDatabase();
 
-  // 2. Seed a default business if none exists
+  // ⭐ Seed demo data if the database is empty.
+  //    If a real business already exists, this does nothing.
+  await SeedData.seedIfEmpty(database);
+
+  // Fallback: if seed somehow skipped (e.g., real business exists but no
+  // default row with 'default-business-id'), ensure a row exists.
   final businesses = await database.select(database.businesses).get();
   if (businesses.isEmpty) {
     await database.into(database.businesses).insert(
@@ -26,12 +31,10 @@ void main() async {
         phone: drift.Value('0700000000'),
       ),
     );
-    debugPrint('✅ Seeded default business.');
   }
 
   runApp(
     ProviderScope(
-      // ⭐ Override the provider so all consumers share the seeded DB
       overrides: [
         databaseProvider.overrideWithValue(database),
       ],

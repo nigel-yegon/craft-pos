@@ -17,7 +17,12 @@ import '../../features/profile/profile_screen.dart';
 import '../../features/products/products_screen.dart';
 import '../../features/reports/reports_screen.dart';
 import '../../features/sales/sales_screen.dart';
+import '../../features/settings/aob_screen.dart';
+import '../../features/settings/backup_screen.dart';
+import '../../features/settings/expenses_screen.dart';
+import '../../features/settings/notifications_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/settings/subscription_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 
 Future<GoRouter> createAppRouter(
@@ -28,7 +33,6 @@ Future<GoRouter> createAppRouter(
   final businessId =
   businesses.isNotEmpty ? businesses.first.id : 'default-business-id';
 
-  // ─── Providers ───
   final authProvider = AuthProvider(db, businessId);
   final productProvider = ProductProvider(db, businessId);
   final categoryProvider = CategoryProvider(db, businessId);
@@ -51,11 +55,9 @@ Future<GoRouter> createAppRouter(
           !isGoingToSetup) {
         return '/login';
       }
-
       if (isLoggedIn && (isGoingToLogin || isGoingToSplash)) {
         return '/dashboard';
       }
-
       return null;
     },
     routes: [
@@ -87,10 +89,35 @@ Future<GoRouter> createAppRouter(
             builder: (context, state) =>
                 ProfileScreen(provider: businessProvider),
           ),
+          // ═══ Settings hub ═══
           GoRoute(
             path: '/settings',
-            builder: (context, state) =>
-                SettingsScreen(provider: expenseProvider),
+            builder: (context, state) => const SettingsScreen(),
+            routes: [
+              GoRoute(
+                path: 'expenses',
+                builder: (context, state) =>
+                    ExpensesScreen(provider: expenseProvider),
+              ),
+              GoRoute(
+                path: 'subscription',
+                builder: (context, state) =>
+                const SubscriptionScreen(),
+              ),
+              GoRoute(
+                path: 'aob',
+                builder: (context, state) => const AobScreen(),
+              ),
+              GoRoute(
+                path: 'notifications',
+                builder: (context, state) =>
+                const NotificationsScreen(),
+              ),
+              GoRoute(
+                path: 'backup',
+                builder: (context, state) => const BackupScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/products',

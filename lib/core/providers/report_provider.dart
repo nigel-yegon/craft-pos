@@ -8,9 +8,7 @@ class ReportProvider extends ChangeNotifier {
 
   ReportProvider(this.db, this.businessId);
 
-  // ═══════════════════════════════════════════════════════════════════
-  // SUMMARY METHODS (Today / Weekly / Monthly)
-  // ═══════════════════════════════════════════════════════════════════
+  // ═══ Summary methods ═══
 
   Future<Map<String, int>> getDailySummary() async {
     final now = DateTime.now();
@@ -66,21 +64,9 @@ class ReportProvider extends ChangeNotifier {
     final profitResult = await profitQuery.getSingleOrNull();
     final totalProfit = (profitResult?.read<double?>('profit') ?? 0).round();
 
-    final stockValueQuery = db.customSelect(
-      '''
-      SELECT SUM(sm.total_qty * p.cost_price_minor) as total_value
-      FROM (
-        SELECT product_id, SUM(quantity_milli) as total_qty
-        FROM stock_movements GROUP BY product_id
-      ) sm
-      JOIN products p ON p.id = sm.product_id
-      WHERE p.business_id = ? AND p.is_active = 1
-      ''',
-      variables: [Variable.withString(businessId)],
-      readsFrom: {db.products, db.stockMovements},
-    );
-    final stockResult = await stockValueQuery.getSingleOrNull();
-    final totalStockValue = ((stockResult?.read<int?>('total_value') ?? 0) ~/ 1000);
+    // ⭐ Stock valuation now comes straight from the ledger.
+    final totalStockValue =
+    await db.getTotalStockValueFromLedger(businessId);
 
     return {
       'sales': totalSales,
@@ -89,9 +75,7 @@ class ReportProvider extends ChangeNotifier {
     };
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // SALES TREND (7-day bar chart data)
-  // ═══════════════════════════════════════════════════════════════════
+  // ═══ Sales trend ═══
 
   Future<List<Map<String, dynamic>>> getSalesTrend() async {
     final now = DateTime.now();
@@ -129,12 +113,9 @@ class ReportProvider extends ChangeNotifier {
     return result;
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // TRANSACTIONS IN RANGE (for PDF + transaction list)
-  // ═══════════════════════════════════════════════════════════════════
+  // ═══ Transactions in range ═══
 
-  Future<List<Sale>> getSalesInRange(
-      DateTime start, DateTime end) async {
+  Future<List<Sale>> getSalesInRange(DateTime start, DateTime end) async {
     return await (db.select(db.sales)
       ..where((s) => s.businessId.equals(businessId))
       ..where((s) => s.status.equals('completed'))
@@ -143,6 +124,7 @@ class ReportProvider extends ChangeNotifier {
       ..orderBy([(s) => OrderingTerm.desc(s.createdAt)]))
         .get();
   }
+
   Future<List<SaleItem>> getSaleItems(String saleId) async {
     return await (db.select(db.saleItems)
       ..where((si) => si.saleId.equals(saleId)))
@@ -154,14 +136,19 @@ class ReportProvider extends ChangeNotifier {
       ..where((p) => p.id.equals(productId)))
         .getSingleOrNull();
   }
-  Future<Map<String, int>> getExpenseSummary(DateTime start, DateTime end) async {
+
+  // ═══ Expenses ═══
+
+  Future<Map<String, int>> getExpenseSummary(
+      DateTime start, DateTime end) async {
+    // Real cash out.
     final paidQuery = db.customSelect(
       '''
-    SELECT COALESCE(SUM(amount_minor), 0) AS total
-    FROM expenses
-    WHERE business_id = ? AND status = 'paid'
-    AND created_at >= ? AND created_at < ?
-    ''',
+      SELECT COALESCE(SUM(paid_amount_minor), 0) AS total
+      FROM expenses
+      WHERE business_id = ?
+      AND created_at >= ? AND created_at < ?
+      ''',
       variables: [
         Variable.withString(businessId),
         Variable.withDateTime(start),
@@ -172,13 +159,14 @@ class ReportProvider extends ChangeNotifier {
     final paidRow = await paidQuery.getSingleOrNull();
     final paid = paidRow?.read<int?>('total') ?? 0;
 
+    // Remaining balance on anything not fully paid.
     final pendingQuery = db.customSelect(
       '''
-    SELECT COALESCE(SUM(amount_minor), 0) AS total
-    FROM expenses
-    WHERE business_id = ? AND status = 'pending'
-    AND created_at >= ? AND created_at < ?
-    ''',
+      SELECT COALESCE(SUM(amount_minor - paid_amount_minor), 0) AS total
+      FROM expenses
+      WHERE business_id = ? AND status != 'paid'
+      AND created_at >= ? AND created_at < ?
+      ''',
       variables: [
         Variable.withString(businessId),
         Variable.withDateTime(start),
@@ -191,9 +179,8 @@ class ReportProvider extends ChangeNotifier {
 
     return {'paid': paid, 'pending': pending};
   }
-  // ═══════════════════════════════════════════════════════════════════
-  // HELD ORDERS (for the "awaiting payment" alert)
-  // ═══════════════════════════════════════════════════════════════════
+
+  // ═══ Held orders ═══
 
   Future<List<HeldOrder>> getHeldOrders() async {
     return await (db.select(db.heldOrders)

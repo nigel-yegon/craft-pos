@@ -5,7 +5,7 @@ import '../../core/theme/app_theme.dart';
 
 class AdjustStockScreen extends StatefulWidget {
   final ProductProvider provider;
-  final Product? initialProduct; // Optional preselected product
+  final Product? initialProduct;
 
   const AdjustStockScreen({
     super.key,
@@ -21,9 +21,10 @@ class _AdjustStockScreenState extends State<AdjustStockScreen> {
   final _formKey = GlobalKey<FormState>();
   final _quantityController = TextEditingController();
   final _noteController = TextEditingController();
+  final _unitCostController = TextEditingController();
 
   Product? _selectedProduct;
-  String _direction = 'add'; // 'add' or 'remove'
+  String _direction = 'add';
   String _reason = 'adjustment';
   String _search = '';
   bool _saving = false;
@@ -38,6 +39,7 @@ class _AdjustStockScreenState extends State<AdjustStockScreen> {
   void dispose() {
     _quantityController.dispose();
     _noteController.dispose();
+    _unitCostController.dispose();
     super.dispose();
   }
 
@@ -56,6 +58,14 @@ class _AdjustStockScreenState extends State<AdjustStockScreen> {
     final deltaMilli =
         (_direction == 'add' ? 1 : -1) * (quantity * 1000).round();
 
+    int? unitCostMinor;
+    if (_direction == 'add') {
+      final parsed = double.tryParse(_unitCostController.text);
+      if (parsed != null && parsed >= 0) {
+        unitCostMinor = (parsed * 100).toInt();
+      }
+    }
+
     setState(() => _saving = true);
 
     try {
@@ -66,6 +76,7 @@ class _AdjustStockScreenState extends State<AdjustStockScreen> {
         note: _noteController.text.trim().isEmpty
             ? null
             : _noteController.text.trim(),
+        unitCostMinor: unitCostMinor,
       );
 
       if (!mounted) return;
@@ -125,7 +136,8 @@ class _AdjustStockScreenState extends State<AdjustStockScreen> {
                     stream: widget.provider.productsStream,
                     builder: (context, snapshot) {
                       if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator());
+                        return const Center(
+                            child: CircularProgressIndicator());
                       }
                       final matches = snapshot.data!.where((p) {
                         return p.name.toLowerCase().contains(_search) ||
@@ -133,18 +145,22 @@ class _AdjustStockScreenState extends State<AdjustStockScreen> {
                       }).toList();
 
                       if (matches.isEmpty) {
-                        return const Center(child: Text('No products match.'));
+                        return const Center(
+                            child: Text('No products match.'));
                       }
 
                       return ListView.separated(
                         itemCount: matches.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        separatorBuilder: (_, __) =>
+                        const Divider(height: 1),
                         itemBuilder: (_, index) {
                           final p = matches[index];
                           return ListTile(
                             leading: const Icon(Icons.inventory_2),
                             title: Text(p.name),
-                            subtitle: p.sku != null ? Text('SKU: ${p.sku}') : null,
+                            subtitle: p.sku != null
+                                ? Text('SKU: ${p.sku}')
+                                : null,
                             onTap: () => setState(() {
                               _selectedProduct = p;
                               _search = '';
@@ -156,14 +172,15 @@ class _AdjustStockScreenState extends State<AdjustStockScreen> {
                   ),
                 ),
               ] else ...[
-                // Selected product card
+                // ─── Selected product card ───
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.inventory_2,
                         color: AppTheme.primaryGreen),
                     title: Text(
                       _selectedProduct!.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style:
+                      const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
                       'Current price: KSh ${(_selectedProduct!.sellingPriceMinor / 100).toStringAsFixed(2)}',
@@ -171,13 +188,14 @@ class _AdjustStockScreenState extends State<AdjustStockScreen> {
                     trailing: IconButton(
                       icon: const Icon(Icons.change_circle_outlined),
                       tooltip: 'Change product',
-                      onPressed: () => setState(() => _selectedProduct = null),
+                      onPressed: () =>
+                          setState(() => _selectedProduct = null),
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // Direction toggle
+                // ─── Direction toggle ───
                 Row(
                   children: [
                     Expanded(
@@ -202,11 +220,11 @@ class _AdjustStockScreenState extends State<AdjustStockScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Quantity field
+                // ─── Quantity ───
                 TextFormField(
                   controller: _quantityController,
-                  keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true),
                   decoration: InputDecoration(
                     labelText: _direction == 'add'
                         ? 'Quantity to add'
@@ -222,9 +240,34 @@ class _AdjustStockScreenState extends State<AdjustStockScreen> {
                     return null;
                   },
                 ),
+
+                // ─── Per-batch unit cost (only for additions) ───
+                if (_direction == 'add') ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _unitCostController,
+                    keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Unit cost for this batch (KSh)',
+                      hintText: 'e.g. 45.50',
+                      prefixIcon: const Icon(Icons.attach_money),
+                      helperText: _selectedProduct?.costPriceMinor != null
+                          ? 'Current cost: KSh ${(_selectedProduct!.costPriceMinor / 100).toStringAsFixed(2)}'
+                          : null,
+                    ),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return null;
+                      final n = double.tryParse(v);
+                      if (n == null || n < 0) return 'Enter a valid cost';
+                      return null;
+                    },
+                  ),
+                ],
+
                 const SizedBox(height: 16),
 
-                // Reason picker
+                // ─── Reason ───
                 DropdownButtonFormField<String>(
                   initialValue: _reason,
                   decoration: const InputDecoration(
@@ -263,7 +306,7 @@ class _AdjustStockScreenState extends State<AdjustStockScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Optional note
+                // ─── Note ───
                 TextFormField(
                   controller: _noteController,
                   maxLines: 2,
@@ -281,8 +324,7 @@ class _AdjustStockScreenState extends State<AdjustStockScreen> {
                     onPressed: _saving ? null : _save,
                     icon: const Icon(Icons.check),
                     label: Text(
-                      _saving ? 'Saving...' : 'Apply Adjustment',
-                    ),
+                        _saving ? 'Saving...' : 'Apply Adjustment'),
                   ),
                 ),
               ],

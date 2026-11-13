@@ -56,9 +56,7 @@ class _StockReportScreenState extends State<StockReportScreen>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // TAB 1: SUMMARY
-  // ═══════════════════════════════════════════════════════════════════
+  // ═══ Summary tab ═══
   Widget _buildSummaryTab() {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: widget.provider.getStockSummary(),
@@ -73,16 +71,14 @@ class _StockReportScreenState extends State<StockReportScreen>
         }
 
         int grandIn = 0, grandOut = 0, grandBalance = 0;
-        double grandValue = 0;
+        int grandValueMinor = 0;
         for (final r in rows) {
           grandIn += r['totalIn'] as int;
           grandOut += r['totalOut'] as int;
           grandBalance += r['balance'] as int;
-          final p = r['product'] as Product;
-          grandValue += (r['balance'] as int) /
-              1000.0 *
-              (p.costPriceMinor / 100.0);
+          grandValueMinor += r['valueMinor'] as int;
         }
+        final grandValue = grandValueMinor / 100.0;
 
         return Column(
           children: [
@@ -119,6 +115,8 @@ class _StockReportScreenState extends State<StockReportScreen>
                   final totalIn = row['totalIn'] as int;
                   final totalOut = row['totalOut'] as int;
                   final balance = row['balance'] as int;
+                  final valueMinor = row['valueMinor'] as int;
+                  final avgCostMinor = row['avgCostMinor'] as int;
                   final isLow = row['isLow'] as bool;
 
                   return Padding(
@@ -169,6 +167,18 @@ class _StockReportScreenState extends State<StockReportScreen>
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
+                            const Spacer(),
+                            Flexible(
+                              child: Text(
+                                'Avg: KSh ${(avgCostMinor / 100).toStringAsFixed(2)} • '
+                                    'Value: KSh ${(valueMinor / 100).toStringAsFixed(2)}',
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.textLight),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -188,8 +198,8 @@ class _StockReportScreenState extends State<StockReportScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style:
-            const TextStyle(fontSize: 11, color: AppTheme.textLight)),
+            style: const TextStyle(
+                fontSize: 11, color: AppTheme.textLight)),
         const SizedBox(height: 4),
         Text(value,
             style: const TextStyle(
@@ -215,9 +225,7 @@ class _StockReportScreenState extends State<StockReportScreen>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // TAB 2: LEDGER
-  // ═══════════════════════════════════════════════════════════════════
+  // ═══ Ledger tab ═══
   Widget _buildLedgerTab() {
     return Column(
       children: [
@@ -348,6 +356,15 @@ class _StockReportScreenState extends State<StockReportScreen>
                                     fontSize: 11,
                                     color: AppTheme.textLight),
                               ),
+                              if (m.unitCostMinor != null) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  '@ KSh ${(m.unitCostMinor! / 100).toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textLight),
+                                ),
+                              ],
                             ],
                           ),
                         ),

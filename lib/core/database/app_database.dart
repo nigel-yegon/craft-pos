@@ -22,7 +22,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase()
       : super(
     driftDatabase(
-      name: 'Craft Business',
+      name: 'craft_pos',
       web: DriftWebOptions(
         sqlite3Wasm: Uri.parse('sqlite3.wasm'),
         driftWorker: Uri.parse('drift_worker.dart.js'),
@@ -55,20 +55,14 @@ class AppDatabase extends _$AppDatabase {
     },
   );
 
-  // ─── Dashboard Metrics ────────────────────────────────────────────
-  Future<String?> getProductName(String productId) async {
-    final row = await (select(products)
-      ..where((p) => p.id.equals(productId)))
-        .getSingleOrNull();
-    return row?.name;
-  }
+  // ═══ Dashboard Metrics ═══
+
   Future<int> getBusinessCount() async =>
       (await select(businesses).get()).length;
 
   Future<int> getProductCount(String businessId) async {
     final query = select(products)
-      ..where((p) =>
-      p.businessId.equals(businessId) & p.isActive.equals(true));
+      ..where((p) => p.businessId.equals(businessId) & p.isActive.equals(true));
     return (await query.get()).length;
   }
 
@@ -85,7 +79,7 @@ class AppDatabase extends _$AppDatabase {
       s.createdAt.isSmallerThanValue(end));
 
     final results = await query.get();
-    return results.fold<int>(0, (total, s) => total + s.totalAmountMinor);
+    return results.fold<int>(0, (total, sale) => total + sale.totalAmountMinor);
   }
 
   Future<int> getTodayTransactionCount(String businessId) async {
@@ -103,7 +97,7 @@ class AppDatabase extends _$AppDatabase {
     return (await query.get()).length;
   }
 
-  // ─── Stock Ledger ─────────────────────────────────────────────────
+  // ═══ Stock Ledger ═══
 
   Future<int> getProductStock(String productId) async {
     final query = selectOnly(stockMovements)
@@ -132,5 +126,45 @@ class AppDatabase extends _$AppDatabase {
     );
     final result = await query.getSingleOrNull();
     return result?.read<int?>('low_stock_count') ?? 0;
+  }
+
+  // ═══ Stock Valuation (ledger-based) ═══
+
+  /// Total value of all stock on hand, using the cost recorded on each movement.
+  Future<int> getTotalStockValueFromLedger(String businessId) async {
+    final query = customSelect(
+      '''
+      SELECT SUM(quantity_milli * COALESCE(unit_cost_minor, 0)) / 1000 AS total_value
+      FROM stock_movements
+      WHERE business_id = ?
+      ''',
+      variables: [Variable.withString(businessId)],
+      readsFrom: {stockMovements},
+    );
+    final result = await query.getSingleOrNull();
+    return result?.read<int?>('total_value') ?? 0;
+  }
+
+  /// Value of stock on hand for one product, using the cost on each movement.
+  Future<int> getProductStockValueFromLedger(String productId) async {
+    final query = customSelect(
+      '''
+      SELECT SUM(quantity_milli * COALESCE(unit_cost_minor, 0)) / 1000 AS total_value
+      FROM stock_movements
+      WHERE product_id = ?
+      ''',
+      variables: [Variable.withString(productId)],
+      readsFrom: {stockMovements},
+    );
+    final result = await query.getSingleOrNull();
+    return result?.read<int?>('total_value') ?? 0;
+  }
+
+  /// Convenience helper used by the Stock Report.
+  Future<String?> getProductName(String productId) async {
+    final row = await (select(products)
+      ..where((p) => p.id.equals(productId)))
+        .getSingleOrNull();
+    return row?.name;
   }
 }

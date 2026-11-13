@@ -1,98 +1,80 @@
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class AppShell extends StatelessWidget {
-  const AppShell({
-    super.key,
-    required this.child,
-  });
-
   final Widget child;
+  const AppShell({super.key, required this.child});
 
-  static const destinations = [
-    (label: 'Home', icon: Icons.dashboard_outlined,
-      selected: Icons.dashboard, path: '/dashboard'),
-    (label: 'Products', icon: Icons.inventory_2_outlined,
-      selected: Icons.inventory_2, path: '/products'),
-    (label: 'Stock', icon: Icons.warehouse_outlined,
-      selected: Icons.warehouse, path: '/inventory'),
-    (label: 'Sales', icon: Icons.point_of_sale_outlined,
-      selected: Icons.point_of_sale, path: '/sales'),
-    (label: 'Reports', icon: Icons.bar_chart_outlined,
-      selected: Icons.bar_chart, path: '/reports'),
+  static const _tabs = [
+    ('/dashboard', Icons.home_outlined, Icons.home, 'Home'),
+    ('/products', Icons.storefront_outlined, Icons.storefront, 'Products'),
+    ('/inventory', Icons.inventory_2_outlined, Icons.inventory_2, 'Inventory'),
+    ('/sales', Icons.shopping_cart_outlined, Icons.shopping_cart, 'Sales'),
+    ('/reports', Icons.bar_chart_outlined, Icons.bar_chart, 'Reports'),
   ];
 
-  int getIndex(String location) {
-    final index = destinations.indexWhere(
-      (item) => location.startsWith(item.path),
-    );
-
-    return index < 0 ? 0 : index;
+  int _indexForLocation(String location) {
+    for (int i = 0; i < _tabs.length; i++) {
+      if (location.startsWith(_tabs[i].$1)) return i;
+    }
+    return 0;
   }
 
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
-    final selectedIndex = getIndex(location);
+    final currentIndex = _indexForLocation(location);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 700;
-
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text(
-              'Craft Business',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
+    return Scaffold(
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final slide = Tween<Offset>(
+            begin: const Offset(0, 0.04),
+            end: Offset.zero,
+          ).animate(animation);
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(position: slide, child: child),
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey(location),
+          child: child,
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
             ),
-            actions: [
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.notifications_none),
-              ),
-              const SizedBox(width: 12),
-            ],
-          ),
-          body: Row(
-            children: [
-              if (wide)
-                NavigationRail(
-                  selectedIndex: selectedIndex,
-                  onDestinationSelected: (index) {
-                    context.go(destinations[index].path);
-                  },
-                  labelType: NavigationRailLabelType.all,
-                  destinations: destinations.map((item) {
-                    return NavigationRailDestination(
-                      icon: Icon(item.icon),
-                      selectedIcon: Icon(item.selected),
-                      label: Text(item.label),
-                    );
-                  }).toList(),
-                ),
-              Expanded(child: child),
-            ],
-          ),
-          bottomNavigationBar: wide
-              ? null
-              : NavigationBar(
-                  selectedIndex: selectedIndex,
-                  onDestinationSelected: (index) {
-                    context.go(destinations[index].path);
-                  },
-                  destinations: destinations.map((item) {
-                    return NavigationDestination(
-                      icon: Icon(item.icon),
-                      selectedIcon: Icon(item.selected),
-                      label: item.label,
-                    );
-                  }).toList(),
-                ),
-        );
-      },
+          ],
+        ),
+        child: NavigationBar(
+          selectedIndex: currentIndex,
+          onDestinationSelected: (index) {
+            final target = _tabs[index].$1;
+            if (target != location) {
+              context.go(target);
+            }
+          },
+          backgroundColor: Colors.white,
+          indicatorColor: const Color(0xFF00897B).withValues(alpha: 0.15),
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          destinations: _tabs.map((t) {
+            return NavigationDestination(
+              icon: Icon(t.$2),
+              selectedIcon: Icon(t.$3, color: const Color(0xFF00897B)),
+              label: t.$4,
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
 }
