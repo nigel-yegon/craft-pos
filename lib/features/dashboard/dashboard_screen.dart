@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:drift/drift.dart' hide Column;
-import 'package:intl/intl.dart'; // ⭐ Import intl for formatting
+import 'package:intl/intl.dart';
 
 import '../../core/database/app_database.dart';
 import '../../core/providers/auth_provider.dart';
@@ -35,7 +35,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _lowStockCount = 0;
   int _todayExpenses = 0;
 
-  // ⭐ Localized Currency Formatter
+  // ⭐ Mock unread notification count (Replace with real DB stream later)
+  int _unreadNotifications = 3;
+
   final _currencyFormatter = NumberFormat.currency(
     locale: 'en_KE',
     symbol: 'KSh ',
@@ -104,7 +106,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final productsSold =
     ((stockResult?.read<int?>('total_sold') ?? 0) ~/ 1000);
 
-    // 4. Expenses (Paid today)
+    // 4. Expenses
     final expenseQuery = db.customSelect(
       '''
       SELECT SUM(paid_amount_minor) as total
@@ -262,9 +264,62 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             onTap: () => _openUniversalSearch(context),
                           ),
                           const SizedBox(width: 8),
-                          _heroIconButton(
-                            icon: Icons.notifications_none_outlined,
-                            onTap: () {},
+
+                          // ⭐ Notification Icon with Badge & Link
+                          GestureDetector(
+                            onTap: () {
+                              // Reset count visually when opened
+                              setState(() => _unreadNotifications = 0);
+                              context.push('/settings/notifications');
+                            },
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white.withValues(alpha: 0.06),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.15),
+                                      width: 0.5,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.notifications_none_outlined,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                if (_unreadNotifications > 0)
+                                  Positioned(
+                                    top: -2,
+                                    right: -2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: AppTheme.burntOrange,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 16,
+                                        minHeight: 16,
+                                      ),
+                                      child: Text(
+                                        '$_unreadNotifications',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700,
+                                          height: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
