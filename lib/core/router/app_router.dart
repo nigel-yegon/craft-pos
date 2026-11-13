@@ -12,22 +12,24 @@ import '../../features/auth/login_screen.dart';
 import '../../features/business/business_setup_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/inventory/inventory_screen.dart';
-import '../../features/onboarding/splash_screens.dart';
+import '../../features/inventory/stock_report_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/products/products_screen.dart';
 import '../../features/reports/reports_screen.dart';
+import '../../features/sales/held_orders_screen.dart';
 import '../../features/sales/sales_screen.dart';
-import '../../features/settings/aob_screen.dart';
-import '../../features/settings/backup_screen.dart';
+import '../../features/settings/aob_screen.dart';           // ⭐ Import AOB
+import '../../features/settings/backup_screen.dart';        // ⭐ Import Backup
 import '../../features/settings/expenses_screen.dart';
-import '../../features/settings/notifications_screen.dart';
+import '../../features/settings/notifications_screen.dart'; // ⭐ Import Notifications
 import '../../features/settings/settings_screen.dart';
 import '../../features/settings/subscription_screen.dart';
 import '../../shared/widgets/app_shell.dart';
+import '../../features/settings/backup_screen.dart';
 
 Future<GoRouter> createAppRouter(
     AppDatabase db, {
-      String initialLocation = '/splash',
+      String initialLocation = '/dashboard', // Default to dashboard after splash
     }) async {
   final businesses = await (db.select(db.businesses)).get();
   final businessId =
@@ -46,25 +48,20 @@ Future<GoRouter> createAppRouter(
     redirect: (context, state) {
       final isLoggedIn = authProvider.isLoggedIn;
       final isGoingToLogin = state.matchedLocation == '/login';
-      final isGoingToSplash = state.matchedLocation == '/splash';
       final isGoingToSetup = state.matchedLocation == '/setup';
 
-      if (!isLoggedIn &&
-          !isGoingToLogin &&
-          !isGoingToSplash &&
-          !isGoingToSetup) {
+      // If not logged in and not going to login/setup, force login
+      if (!isLoggedIn && !isGoingToLogin && !isGoingToSetup) {
         return '/login';
       }
-      if (isLoggedIn && (isGoingToLogin || isGoingToSplash)) {
+      // If logged in and trying to access login, go to dashboard
+      if (isLoggedIn && isGoingToLogin) {
         return '/dashboard';
       }
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/splash',
-        builder: (context, state) => const SplashScreens(),
-      ),
+      // Splash is handled in app.dart, but we keep it here as a fallback if needed
       GoRoute(
         path: '/login',
         builder: (context, state) => LoginScreen(authProvider: authProvider),
@@ -89,7 +86,8 @@ Future<GoRouter> createAppRouter(
             builder: (context, state) =>
                 ProfileScreen(provider: businessProvider),
           ),
-          // ═══ Settings hub ═══
+
+          // ⭐ Updated Settings Routes with all sub-menus
           GoRoute(
             path: '/settings',
             builder: (context, state) => const SettingsScreen(),
@@ -101,24 +99,34 @@ Future<GoRouter> createAppRouter(
               ),
               GoRoute(
                 path: 'subscription',
-                builder: (context, state) =>
-                const SubscriptionScreen(),
+                builder: (context, state) => const SubscriptionScreen(),
               ),
+              // ⭐ Added Business Route
+              // Inside createAppRouter
               GoRoute(
                 path: 'aob',
-                builder: (context, state) => const AobScreen(),
+                builder: (context, state) => AobScreen(
+                  businessProvider: businessProvider,
+                  authProvider: authProvider,
+                ),
+              ),
+              // ⭐ Added Notifications Route
+              GoRoute(
+                path: 'backup',
+                builder: (context, state) => const BackupScreen(),
               ),
               GoRoute(
                 path: 'notifications',
-                builder: (context, state) =>
-                const NotificationsScreen(),
+                builder: (context, state) => const NotificationsScreen(),
               ),
+              // ⭐ Added Backup & Privacy Route
               GoRoute(
                 path: 'backup',
                 builder: (context, state) => const BackupScreen(),
               ),
             ],
           ),
+
           GoRoute(
             path: '/products',
             builder: (context, state) => ProductsScreen(
@@ -137,11 +145,25 @@ Future<GoRouter> createAppRouter(
               productProvider: productProvider,
               salesProvider: salesProvider,
             ),
+            routes: [
+              GoRoute(
+                path: 'held',
+                builder: (context, state) =>
+                    HeldOrdersScreen(provider: salesProvider),
+              ),
+            ],
           ),
           GoRoute(
             path: '/reports',
             builder: (context, state) =>
                 ReportsScreen(provider: reportProvider),
+            routes: [
+              GoRoute(
+                path: 'stock',
+                builder: (context, state) =>
+                    StockReportScreen(provider: productProvider),
+              ),
+            ],
           ),
         ],
       ),

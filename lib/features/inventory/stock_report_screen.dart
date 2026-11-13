@@ -91,14 +91,10 @@ class _StockReportScreenState extends State<StockReportScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _totalsItem('Stock In',
-                          '${(grandIn / 1000).toStringAsFixed(0)}'),
-                      _totalsItem('Stock Out',
-                          '${(grandOut / 1000).toStringAsFixed(0)}'),
-                      _totalsItem('Balance',
-                          '${(grandBalance / 1000).toStringAsFixed(0)}'),
-                      _totalsItem(
-                          'Value', 'KSh ${grandValue.toStringAsFixed(0)}'),
+                      _totalsItem('Stock In', (grandIn / 1000).toStringAsFixed(0)),
+                      _totalsItem('Stock Out', (grandOut / 1000).toStringAsFixed(0)),
+                      _totalsItem('Balance', (grandBalance / 1000).toStringAsFixed(0)),
+                      _totalsItem('Value', 'KSh ${grandValue.toStringAsFixed(0)}'),
                     ],
                   ),
                 ),
@@ -136,7 +132,7 @@ class _StockReportScreenState extends State<StockReportScreen>
                               ),
                             ),
                             Text(
-                              '${(balance / 1000).toStringAsFixed(2)}',
+                              (balance / 1000).toStringAsFixed(2),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,

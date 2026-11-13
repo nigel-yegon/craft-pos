@@ -87,12 +87,13 @@ class _LoginScreenState extends State<LoginScreen> {
               const Text('Enter your PIN to continue', style: TextStyle(color: AppTheme.textLight)),
               const SizedBox(height: 32),
 
-              DropdownButtonFormField<String>(
-                value: _selectedUserName,
-                decoration: const InputDecoration(labelText: 'Select User'),
-                items: _userNames.map((name) => DropdownMenuItem(value: name, child: Text(name))).toList(),
-                onChanged: (val) => setState(() => _selectedUserName = val),
-              ),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedUserName,
+          decoration: const InputDecoration(labelText: 'Select User'),
+          items: _userNames.map((name) => DropdownMenuItem(value: name, child: Text(name))).toList(),
+          onChanged: (val) => setState(() => _selectedUserName = val),
+        ),
+
               const SizedBox(height: 16),
 
               TextField(

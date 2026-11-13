@@ -23,7 +23,7 @@ class ProductImage extends StatelessWidget {
       child: Container(
         width: size,
         height: size,
-        color: Colors.grey.shade100,
+        color: const Color(0xFFF2F4F3),
         child: exists
             ? Image.file(
           file,
@@ -32,9 +32,9 @@ class ProductImage extends StatelessWidget {
           height: size,
         )
             : Icon(
-          Icons.inventory_2,
-          size: size * 0.45,
-          color: Colors.grey.shade400,
+          Icons.inventory_2_outlined,
+          size: size * 0.4,
+          color: const Color(0xFF9BA8A0),
         ),
       ),
     );

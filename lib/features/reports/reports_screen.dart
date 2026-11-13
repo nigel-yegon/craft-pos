@@ -8,6 +8,7 @@ import '../../core/providers/database_provider.dart';
 import '../../core/providers/report_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/pdf_helper.dart';
+import '../../core/widgets/currency_icon.dart';
 
 class ReportsScreen extends ConsumerStatefulWidget {
   final ReportProvider provider;
@@ -149,21 +150,26 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(_businessName.isNotEmpty ? _businessName : 'Reports'),
+        backgroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.picture_as_pdf,
-                color: AppTheme.primaryGreen),
+                color: AppTheme.heroGreen),
             tooltip: 'Export PDF',
             onPressed: _isLoading ? null : _exportPdf,
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: AppTheme.primaryGreen,
-          labelColor: AppTheme.primaryGreen,
-          unselectedLabelColor: AppTheme.textLight,
+          indicatorColor: AppTheme.heroGreen,
+          indicatorWeight: 3,
+          labelColor: AppTheme.heroGreen,
+          unselectedLabelColor: AppTheme.onLightMuted,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w700),
           tabs: const [
             Tab(text: 'Today'),
             Tab(text: 'Weekly'),
@@ -172,39 +178,44 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.heroGreen))
           : RefreshIndicator(
         onRefresh: () => _loadData(_tabController.index),
+        color: AppTheme.heroGreen,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
                 'Period: $_periodLabel',
                 style: const TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textLight,
+                  fontSize: 12,
+                  color: AppTheme.onLightMuted,
                   fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
                 ),
               ),
               const SizedBox(height: 16),
 
-              // ─── Metric cards 2×2 ───
+              // ─── Summary cards 2×2 ───
               Row(
                 children: [
                   _buildMetricCard(
                     'Sales',
                     _formatKsh(_summary['sales'] ?? 0),
-                    AppTheme.primaryGreen,
-                    Icons.attach_money,
+                    AppTheme.heroGreen, // Dark Forest
+                    const CurrencyIcon(color: Colors.white, size: 20),
+                    isDark: true,
                   ),
                   const SizedBox(width: 12),
                   _buildMetricCard(
                     'Profit',
                     _formatKsh(_summary['profit'] ?? 0),
-                    Colors.blue,
-                    Icons.trending_up,
+                    AppTheme.midGreen, // Mid Green
+                    const Icon(Icons.trending_up,
+                        size: 20, color: Colors.white),
+                    isDark: true,
                   ),
                 ],
               ),
@@ -214,42 +225,65 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                   _buildMetricCard(
                     'Stock Value',
                     _formatKsh(_summary['stockValue'] ?? 0),
-                    Colors.orange,
-                    Icons.inventory,
+                    AppTheme.forestDeep, // Darker Green
+                    const Icon(Icons.inventory,
+                        size: 20, color: Colors.white),
+                    isDark: true,
                   ),
                   const SizedBox(width: 12),
                   _buildMetricCard(
                     'Transactions',
                     '${_salesInRange.length}',
-                    Colors.purple,
-                    Icons.receipt_long,
+                    AppTheme.midnightViolet, // Deep Violet
+                    const Icon(Icons.receipt_long,
+                        size: 20, color: Colors.white),
+                    isDark: true,
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
-              // ─── Money Position ───
+              // ─── Money Position Card ───
               _buildMoneyPositionCard(),
               const SizedBox(height: 24),
 
-              // ─── Held orders ───
+              // ─── Held orders alert ───
               if (_heldOrders.isNotEmpty) ...[
-                Card(
-                  color: Colors.orange.withValues(alpha: 0.1),
-                  child: ListTile(
-                    leading: const Icon(Icons.pause_circle_outline,
-                        color: Colors.orange),
-                    title: Text(
-                      '${_heldOrders.length} held order(s) awaiting payment',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.burntOrange.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color: AppTheme.burntOrange.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.pause_circle_outline,
+                          color: AppTheme.burntOrange),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${_heldOrders.length} held order(s)',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: AppTheme.inkBlack,
+                              ),
+                            ),
+                            const Text(
+                              'Awaiting payment. Go to Sales → Held Orders.',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.onLightSecondary),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    subtitle: const Text(
-                      'Go to Sales → Held Orders to resume',
-                      style: TextStyle(fontSize: 11),
-                    ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -260,16 +294,21 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                 'Sales Trend (Last 7 Days)',
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textDark,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.inkBlack,
+                  letterSpacing: -0.2,
                 ),
               ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: SizedBox(height: 220, child: _buildChart()),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: AppTheme.inkBlack.withValues(alpha: 0.06)),
                 ),
+                child: SizedBox(height: 220, child: _buildChart()),
               ),
               const SizedBox(height: 24),
 
@@ -278,20 +317,25 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                 'Transactions',
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textDark,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.inkBlack,
+                  letterSpacing: -0.2,
                 ),
               ),
               const SizedBox(height: 12),
               if (_salesInRange.isEmpty)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(
-                      child: Text(
-                        'No transactions for this period',
-                        style: TextStyle(color: AppTheme.textLight),
-                      ),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color: AppTheme.inkBlack.withValues(alpha: 0.06)),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'No transactions for this period',
+                      style: TextStyle(color: AppTheme.onLightMuted),
                     ),
                   ),
                 )
@@ -305,62 +349,78 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     );
   }
 
-  // ─── Money Position card ───
+  // ─── Money Position Card (Dark Theme) ───
   Widget _buildMoneyPositionCard() {
     final sales = _summary['sales'] ?? 0;
     final net = sales - _expensePaid;
 
-    return Card(
-      color: AppTheme.primaryGreen.withValues(alpha: 0.05),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Money Position',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: AppTheme.textDark,
-              ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.heroGreen,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.heroGreen.withValues(alpha: 0.2),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'MONEY POSITION',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 10,
+              letterSpacing: 1.2,
+              color: AppTheme.onHeroMuted,
             ),
-            const SizedBox(height: 12),
-            _positionRow(
-              'Money In (Sales)',
-              _formatKsh(sales),
-              Colors.green,
+          ),
+          const SizedBox(height: 16),
+          _positionRow(
+            'Money In (Sales)',
+            _formatKsh(sales),
+            AppTheme.brightGreen,
+          ),
+          _positionRow(
+            'Money Out (Paid)',
+            '- ${_formatKsh(_expensePaid)}',
+            Colors.white,
+          ),
+          _positionRow(
+            'Pending Balances',
+            _formatKsh(_expensePending),
+            AppTheme.onHeroSecondary,
+            sub: true,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Divider(
+              color: Colors.white.withValues(alpha: 0.1),
+              height: 1,
             ),
-            _positionRow(
-              'Money Out (Paid)',
-              '- ${_formatKsh(_expensePaid)}',
-              Colors.red,
+          ),
+          _positionRow(
+            'Net Position',
+            _formatKsh(net),
+            net >= 0 ? AppTheme.brightGreen : AppTheme.burntOrange,
+            bold: true,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            net >= 0
+                ? 'You are cash-positive for this period.'
+                : 'You are cash-negative for this period.',
+            style: TextStyle(
+              fontSize: 11,
+              color: net >= 0 ? AppTheme.brightGreen : AppTheme.burntOrange,
+              fontWeight: FontWeight.w500,
             ),
-            _positionRow(
-              'Pending Balances',
-              _formatKsh(_expensePending),
-              Colors.orange,
-              sub: true,
-            ),
-            const Divider(),
-            _positionRow(
-              'Net Position',
-              _formatKsh(net),
-              AppTheme.primaryGreen,
-              bold: true,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              net >= 0
-                  ? 'You are cash-positive for this period.'
-                  : 'You are cash-negative for this period.',
-              style: TextStyle(
-                fontSize: 11,
-                color: net >= 0 ? Colors.green : Colors.red,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -376,16 +436,17 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
             label,
             style: TextStyle(
               fontSize: sub ? 12 : 13,
-              color: sub ? AppTheme.textLight : AppTheme.textDark,
-              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+              color: sub ? AppTheme.onHeroMuted : Colors.white,
+              fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
             ),
           ),
           Text(
             value,
             style: TextStyle(
-              fontSize: bold ? 16 : 13,
+              fontSize: bold ? 18 : 14,
               color: color,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
+              letterSpacing: bold ? -0.5 : 0,
             ),
           ),
         ],
@@ -393,176 +454,198 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     );
   }
 
-  // ─── Transaction tile ───
+  // ─── Transaction Tile (Clean White) ───
   Widget _buildTransactionTile(Sale sale) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      clipBehavior: Clip.antiAlias,
-      child: ExpansionTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryGreen.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.inkBlack.withValues(alpha: 0.08)),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.softMint,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.receipt,
+              color: AppTheme.heroGreen,
+              size: 20,
+            ),
           ),
-          child: const Icon(
-            Icons.receipt,
-            color: AppTheme.primaryGreen,
-            size: 20,
+          title: Text(
+            DateFormat('dd MMM, HH:mm').format(sale.createdAt),
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: AppTheme.inkBlack,
+            ),
           ),
-        ),
-        title: Text(
-          DateFormat('dd MMM, HH:mm').format(sale.createdAt),
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
+          subtitle: Text(
+            sale.paymentMethod ?? 'Unknown',
+            style: const TextStyle(fontSize: 12, color: AppTheme.onLightMuted),
           ),
-        ),
-        subtitle: Text(
-          sale.paymentMethod ?? 'Unknown',
-          style: const TextStyle(fontSize: 12),
-        ),
-        trailing: Text(
-          _formatKsh(sale.totalAmountMinor),
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textDark,
+          trailing: Text(
+            _formatKsh(sale.totalAmountMinor),
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppTheme.inkBlack,
+            ),
           ),
-        ),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        expandedCrossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Divider(height: 1),
-          const SizedBox(height: 8),
-          FutureBuilder<List<_SaleLine>>(
-            future: _loadSaleLines(sale.id),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Divider(color: AppTheme.inkBlack.withValues(alpha: 0.06), height: 1),
+            const SizedBox(height: 12),
+            FutureBuilder<List<_SaleLine>>(
+              future: _loadSaleLines(sale.id),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     ),
-                  ),
-                );
-              }
+                  );
+                }
 
-              final lines = snapshot.data!;
-              if (lines.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text('No line items recorded.'),
-                );
-              }
+                final lines = snapshot.data!;
+                if (lines.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text('No line items recorded.'),
+                  );
+                }
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Items sold',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: AppTheme.textDark,
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Items sold',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: AppTheme.onLightSecondary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...lines.map((line) {
-                    final qty = line.quantity;
-                    final qtyLabel = qty % 1 == 0
-                        ? qty.toStringAsFixed(0)
-                        : qty.toStringAsFixed(2);
+                    const SizedBox(height: 8),
+                    ...lines.map((line) {
+                      final qty = line.quantity;
+                      final qtyLabel = qty % 1 == 0
+                          ? qty.toStringAsFixed(0)
+                          : qty.toStringAsFixed(2);
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              line.productName,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                          Text(
-                            '$qtyLabel × ${_formatKsh(line.unitPriceMinor)}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textLight,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          SizedBox(
-                            width: 90,
-                            child: Text(
-                              _formatKsh(line.lineTotalMinor),
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                line.productName,
+                                style: const TextStyle(fontSize: 13),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
-              );
-            },
-          ),
-        ],
+                            Text(
+                              '$qtyLabel × ${_formatKsh(line.unitPriceMinor)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.onLightMuted,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            SizedBox(
+                              width: 90,
+                              child: Text(
+                                _formatKsh(line.lineTotalMinor),
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // ─── Metric card ───
+  // ─── Metric Card (Dark Themed) ───
   Widget _buildMetricCard(
       String title,
       String value,
-      Color color,
-      IconData icon,
-      ) {
+      Color bgColor,
+      Widget iconWidget, {
+        bool isDark = false,
+      }) {
     return Expanded(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: color, size: 20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                iconWidget,
+                Icon(Icons.arrow_outward,
+                    size: 14, color: Colors.white.withValues(alpha: 0.4)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title.toUpperCase(),
+              style: TextStyle(
+                fontSize: 9,
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withValues(alpha: 0.7),
               ),
-              const SizedBox(height: 12),
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppTheme.textLight)),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textDark,
-                ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                letterSpacing: -0.5,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // ─── Sales trend chart ───
+  // ─── Sales Trend Chart ───
   Widget _buildChart() {
-    if (_trend.isEmpty) return const Center(child: Text('No data'));
+    if (_trend.isEmpty) {
+      return const Center(
+        child: Text('No data', style: TextStyle(color: AppTheme.onLightMuted)),
+      );
+    }
 
     final maxY = _trend
         .map((e) => (e['total'] as int) / 100.0)
@@ -579,7 +662,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
           drawVerticalLine: false,
           horizontalInterval: safeMaxY / 4,
           getDrawingHorizontalLine: (value) =>
-              FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+              FlLine(color: AppTheme.inkBlack.withValues(alpha: 0.05), strokeWidth: 1),
         ),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
@@ -594,7 +677,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               getTitlesWidget: (value, meta) => Text(
                 '${value.toInt()}',
                 style: const TextStyle(
-                    fontSize: 10, color: AppTheme.textLight),
+                    fontSize: 10, color: AppTheme.onLightMuted),
               ),
             ),
           ),
@@ -612,7 +695,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                   child: Text(
                     _trend[index]['label'],
                     style: const TextStyle(
-                        fontSize: 10, color: AppTheme.textLight),
+                        fontSize: 10, color: AppTheme.onLightMuted),
                   ),
                 );
               },
@@ -627,10 +710,10 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
             barRods: [
               BarChartRodData(
                 toY: total,
-                color: AppTheme.primaryGreen,
-                width: 18,
+                color: AppTheme.brightGreen, // Bright green bars
+                width: 16,
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(4),
+                  top: Radius.circular(6),
                 ),
               ),
             ],

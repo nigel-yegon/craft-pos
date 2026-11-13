@@ -30,6 +30,11 @@ class ExportHelper {
     await file.writeAsString(csvData);
 
     // Open share sheet so they can save to Drive/WhatsApp/Email
-    await Share.shareXFiles([XFile(path)], text: 'Craft Business Sales Export');
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(path)],
+        text: 'Craft POS Sales Export',
+      ),
+    );
   }
 }

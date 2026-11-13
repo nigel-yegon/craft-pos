@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/providers/expense_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/clean_field.dart';
 
 class ExpenseFormScreen extends StatefulWidget {
   final ExpenseProvider provider;
@@ -74,157 +75,259 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
-          widget.isRecurring ? 'New Recurring Expense' : 'New Expense',
+          widget.isRecurring ? 'New recurring' : 'New expense',
+          style: const TextStyle(
+            color: AppTheme.inkBlack,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppTheme.inkBlack),
+          onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          IconButton(onPressed: _save, icon: const Icon(Icons.check)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: TextButton(
+              onPressed: _save,
+              child: const Text(
+                'Save',
+                style: TextStyle(
+                  color: AppTheme.brightGreen,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 48),
           children: [
-            // ─── Name ───
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Expense Name *',
-                hintText: 'e.g. Rent, Electricity, Salary',
+            CleanField(
+              label: 'Name',
+              child: TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  hintText: 'Rent, electricity, salary...',
+                ),
+                style: const TextStyle(
+                  color: AppTheme.inkBlack,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+                validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
-              validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
 
-            // ─── Amount ───
-            TextFormField(
-              controller: _amountController,
-              keyboardType:
-              const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Amount (KSh) *',
-                prefixIcon: Icon(Icons.attach_money),
+            CleanField(
+              label: 'Amount (KES)',
+              child: TextFormField(
+                controller: _amountController,
+                keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(
+                  color: AppTheme.inkBlack,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -1,
+                ),
+                decoration: const InputDecoration(
+                  hintText: '0.00',
+                ),
+                validator: (v) {
+                  final n = double.tryParse(v ?? '');
+                  if (n == null || n <= 0) return 'Enter a positive amount';
+                  return null;
+                },
               ),
-              validator: (v) {
-                final n = double.tryParse(v ?? '');
-                if (n == null || n <= 0) return 'Enter a positive amount';
-                return null;
-              },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
 
-            // ─── Category ───
-            DropdownButtonFormField<String>(
-              initialValue: _category,
-              decoration: const InputDecoration(labelText: 'Category'),
-              items: const [
-                DropdownMenuItem(value: 'rent', child: Text('Rent')),
-                DropdownMenuItem(value: 'salary', child: Text('Salary')),
-                DropdownMenuItem(value: 'utility', child: Text('Utility')),
-                DropdownMenuItem(value: 'supplies', child: Text('Supplies')),
-                DropdownMenuItem(value: 'transport', child: Text('Transport')),
-                DropdownMenuItem(value: 'general', child: Text('General')),
-              ],
-              onChanged: (v) => setState(() => _category = v ?? 'general'),
+            CleanField(
+              label: 'Category',
+              child: DropdownButtonFormField<String>(
+                initialValue: _category,
+                dropdownColor: Colors.white,
+                iconEnabledColor: AppTheme.inkBlack.withValues(alpha: 0.6),
+                decoration: const InputDecoration(),
+                style: const TextStyle(
+                  color: AppTheme.inkBlack,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'rent', child: Text('Rent')),
+                  DropdownMenuItem(value: 'salary', child: Text('Salary')),
+                  DropdownMenuItem(value: 'utility', child: Text('Utility')),
+                  DropdownMenuItem(value: 'supplies', child: Text('Supplies')),
+                  DropdownMenuItem(value: 'transport', child: Text('Transport')),
+                  DropdownMenuItem(value: 'general', child: Text('General')),
+                ],
+                onChanged: (v) =>
+                    setState(() => _category = v ?? 'general'),
+              ),
             ),
-            const SizedBox(height: 12),
 
-            // ─── Recurring-only fields ───
             if (widget.isRecurring) ...[
-              DropdownButtonFormField<String>(
-                initialValue: _period,
-                decoration: const InputDecoration(labelText: 'Repeats'),
-                items: const [
-                  DropdownMenuItem(value: 'daily', child: Text('Daily')),
-                  DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
-                  DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
-                  DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
-                ],
-                onChanged: (v) => setState(() => _period = v ?? 'monthly'),
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_today,
-                    color: AppTheme.primaryGreen),
-                title: Text(
-                  _dueDate == null
-                      ? 'First due date (required)'
-                      : 'First due: ${_dueDate!.toLocal().toString().split(' ')[0]}',
+              const SizedBox(height: 24),
+              CleanField(
+                label: 'Repeats',
+                child: DropdownButtonFormField<String>(
+                  initialValue: _period,
+                  dropdownColor: Colors.white,
+                  iconEnabledColor: AppTheme.inkBlack.withValues(alpha: 0.6),
+                  decoration: const InputDecoration(),
+                  style: const TextStyle(
+                    color: AppTheme.inkBlack,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'daily', child: Text('Daily')),
+                    DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
+                    DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+                    DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
+                  ],
+                  onChanged: (v) =>
+                      setState(() => _period = v ?? 'monthly'),
                 ),
-                trailing: _dueDate == null
-                    ? null
-                    : IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () => setState(() => _dueDate = null),
-                ),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate:
-                    DateTime.now().subtract(const Duration(days: 365)),
-                    lastDate:
-                    DateTime.now().add(const Duration(days: 365 * 5)),
-                  );
-                  if (picked != null) setState(() => _dueDate = picked);
-                },
               ),
-            ]
-
-            // ─── One-off-only fields ───
-            else ...[
-              DropdownButtonFormField<String>(
-                initialValue: _status,
-                decoration: const InputDecoration(labelText: 'Status'),
-                items: const [
-                  DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                  DropdownMenuItem(value: 'paid', child: Text('Paid')),
-                ],
-                onChanged: (v) => setState(() => _status = v ?? 'pending'),
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_today,
-                    color: AppTheme.primaryGreen),
-                title: Text(
-                  _dueDate == null
-                      ? 'Due date (optional)'
-                      : 'Due: ${_dueDate!.toLocal().toString().split(' ')[0]}',
+              const SizedBox(height: 24),
+              CleanField(
+                label: 'First due date',
+                child: _buildDateRow(
+                  label: _dueDate == null
+                      ? 'Select date'
+                      : _formatDate(_dueDate!),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _dueDate ?? DateTime.now(),
+                      firstDate: DateTime.now()
+                          .subtract(const Duration(days: 365)),
+                      lastDate: DateTime.now()
+                          .add(const Duration(days: 365 * 5)),
+                    );
+                    if (picked != null) {
+                      setState(() => _dueDate = picked);
+                    }
+                  },
                 ),
-                trailing: _dueDate == null
-                    ? null
-                    : IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () => setState(() => _dueDate = null),
-                ),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate:
-                    DateTime.now().subtract(const Duration(days: 365)),
-                    lastDate:
-                    DateTime.now().add(const Duration(days: 365 * 3)),
-                  );
-                  if (picked != null) setState(() => _dueDate = picked);
-                },
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _noteController,
-                maxLines: 2,
-                decoration:
-                const InputDecoration(labelText: 'Note (optional)'),
+            ] else ...[
+              const SizedBox(height: 24),
+              CleanField(
+                label: 'Status',
+                child: DropdownButtonFormField<String>(
+                  initialValue: _status,
+                  dropdownColor: Colors.white,
+                  iconEnabledColor: AppTheme.inkBlack.withValues(alpha: 0.6),
+                  decoration: const InputDecoration(),
+                  style: const TextStyle(
+                    color: AppTheme.inkBlack,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                    DropdownMenuItem(value: 'paid', child: Text('Paid')),
+                  ],
+                  onChanged: (v) =>
+                      setState(() => _status = v ?? 'pending'),
+                ),
+              ),
+              const SizedBox(height: 24),
+              CleanField(
+                label: 'Due date (optional)',
+                child: _buildDateRow(
+                  label: _dueDate == null
+                      ? 'Select date'
+                      : _formatDate(_dueDate!),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _dueDate ?? DateTime.now(),
+                      firstDate: DateTime.now()
+                          .subtract(const Duration(days: 365)),
+                      lastDate: DateTime.now()
+                          .add(const Duration(days: 365 * 3)),
+                    );
+                    if (picked != null) {
+                      setState(() => _dueDate = picked);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+              CleanField(
+                label: 'Note (optional)',
+                child: TextFormField(
+                  controller: _noteController,
+                  maxLines: 2,
+                  style: const TextStyle(
+                    color: AppTheme.inkBlack,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'Add a note...',
+                  ),
+                ),
               ),
             ],
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildDateRow({required String label, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Icon(Icons.calendar_today_outlined,
+                size: 16,
+                color: AppTheme.inkBlack.withValues(alpha: 0.55)),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                color: AppTheme.inkBlack.withValues(
+                  alpha: label == 'Select date' ? 0.4 : 1.0,
+                ),
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const Spacer(),
+            Icon(Icons.chevron_right,
+                size: 18,
+                color: AppTheme.inkBlack.withValues(alpha: 0.3)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime d) {
+    return '${d.day}/${d.month}/${d.year}';
   }
 }

@@ -23,7 +23,7 @@ class SalesScreen extends StatefulWidget {
 class _SalesScreenState extends State<SalesScreen> {
   final List<CartItem> _cart = [];
   String _searchQuery = '';
-  bool _cartExpanded = true;
+  bool _cartExpanded = false;   // ⭐ starts closed
 
   int get _cartTotalMinor => _cart.fold(
     0,
@@ -43,6 +43,7 @@ class _SalesScreenState extends State<SalesScreen> {
         _cart.add(CartItem(product: product));
       }
     });
+    // NOTE: no auto-expand — the pill reflects the new count instead.
   }
 
   void _removeFromCart(int index) {
@@ -55,39 +56,72 @@ class _SalesScreenState extends State<SalesScreen> {
     });
   }
 
-  // ─── Pay now ──────────────────────────────────────────────────────
   Future<void> _payNow() async {
     if (_cart.isEmpty) return;
-
     final total = _cartTotalMinor;
+
     final method = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Choose Payment Method'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading:
-              const Icon(Icons.money, color: AppTheme.primaryGreen),
-              title: const Text('Cash'),
-              subtitle: Text('KSh ${(total / 100).toStringAsFixed(2)}'),
-              onTap: () => Navigator.pop(ctx, 'Cash'),
-            ),
-            ListTile(
-              leading:
-              const Icon(Icons.phone_android, color: Colors.green),
-              title: const Text('M-Pesa'),
-              subtitle: Text('KSh ${(total / 100).toStringAsFixed(2)}'),
-              onTap: () => Navigator.pop(ctx, 'M-Pesa'),
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.cancel, color: Colors.grey),
-              title: const Text('Cancel'),
-              onTap: () => Navigator.pop(ctx, null),
-            ),
-          ],
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: Text(
+                  'Payment method',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentMint.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.money,
+                      color: AppTheme.primaryGreen, size: 20),
+                ),
+                title: const Text('Cash',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text('KSh ${(total / 100).toStringAsFixed(2)}'),
+                onTap: () => Navigator.pop(ctx, 'Cash'),
+              ),
+              ListTile(
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentMint.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.phone_android,
+                      color: AppTheme.primaryGreen, size: 20),
+                ),
+                title: const Text('M-Pesa',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text('KSh ${(total / 100).toStringAsFixed(2)}'),
+                onTap: () => Navigator.pop(ctx, 'M-Pesa'),
+              ),
+              const Divider(height: 24),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -109,36 +143,57 @@ class _SalesScreenState extends State<SalesScreen> {
       SnackBar(
         content: Text('Sale complete — $method'),
         backgroundColor: AppTheme.primaryGreen,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
       ),
     );
   }
 
-  // ─── Hold order ───────────────────────────────────────────────────
   Future<void> _holdOrder() async {
     if (_cart.isEmpty) return;
 
     final noteController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Hold Order'),
-        content: TextField(
-          controller: noteController,
-          decoration: const InputDecoration(
-            labelText: 'Note (optional)',
-            hintText: 'e.g., Customer will pay later',
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Hold order',
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: noteController,
+                decoration: const InputDecoration(
+                  labelText: 'Note (optional)',
+                  hintText: 'e.g. Customer will pay later',
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Hold'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Hold'),
-          ),
-        ],
       ),
     );
 
@@ -158,12 +213,15 @@ class _SalesScreenState extends State<SalesScreen> {
       _cartExpanded = false;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Order held — open Held Orders to resume')),
+      SnackBar(
+        content: const Text('Order held — open Held Orders to resume'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+      ),
     );
   }
 
-  // ─── Open Held Orders ────────────────────────────────────────────
   Future<void> _openHeldOrders() async {
     final result = await Navigator.push<List<CartItem>>(
       context,
@@ -175,7 +233,7 @@ class _SalesScreenState extends State<SalesScreen> {
       setState(() {
         _cart.clear();
         _cart.addAll(result);
-        _cartExpanded = true;
+        _cartExpanded = false;   // ⭐ stays closed
       });
     }
   }
@@ -185,6 +243,7 @@ class _SalesScreenState extends State<SalesScreen> {
     final isWideScreen = MediaQuery.of(context).size.width > 800;
 
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: const Text('New Sale'),
         leading: IconButton(
@@ -201,54 +260,43 @@ class _SalesScreenState extends State<SalesScreen> {
       ),
       body: Stack(
         children: [
+          // Main content (grid only — no cart unless expanded)
           Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                if (_cartExpanded && _cart.isNotEmpty) {
-                  setState(() => _cartExpanded = false);
-                }
-              },
-              behavior: HitTestBehavior.deferToChild,
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: TextField(
-                      decoration: const InputDecoration(
-                        hintText: 'Search products by name or SKU...',
-                        prefixIcon: Icon(Icons.search),
-                      ),
-                      onChanged: (v) =>
-                          setState(() => _searchQuery = v.toLowerCase()),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      hintText: 'Search products by name or SKU...',
+                      prefixIcon: Icon(Icons.search),
                     ),
+                    onChanged: (v) =>
+                        setState(() => _searchQuery = v.toLowerCase()),
                   ),
-                  Expanded(
-                    child: isWideScreen
-                        ? Row(
-                      children: [
-                        Expanded(
-                            flex: 3, child: _buildProductGrid()),
-                        if (_cartExpanded)
-                          Expanded(
-                              flex: 2, child: _buildCart()),
-                      ],
-                    )
-                        : Column(
-                      children: [
-                        Expanded(
-                            flex: 3, child: _buildProductGrid()),
-                        if (_cartExpanded)
-                          SizedBox(
-                              height: 350, child: _buildCart()),
-                      ],
-                    ),
+                ),
+                Expanded(
+                  child: isWideScreen
+                      ? Row(
+                    children: [
+                      Expanded(flex: 3, child: _buildProductGrid()),
+                      if (_cartExpanded)
+                        Expanded(flex: 2, child: _buildCart()),
+                    ],
+                  )
+                      : Column(
+                    children: [
+                      Expanded(flex: 3, child: _buildProductGrid()),
+                      if (_cartExpanded)
+                        SizedBox(height: 380, child: _buildCart()),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
-          // ⭐ Floating cart pill — ALWAYS visible when collapsed
+          // Floating cart pill — always visible when collapsed
           if (!_cartExpanded)
             Positioned(
               bottom: 20,
@@ -260,94 +308,85 @@ class _SalesScreenState extends State<SalesScreen> {
     );
   }
 
-  // ─── Floating cart pill (always visible when collapsed) ──────────
   Widget _buildFloatingCartBadge() {
     final isEmpty = _cart.isEmpty;
 
     return GestureDetector(
       onTap: () => setState(() => _cartExpanded = true),
-      child: Material(
-        elevation: 6,
-        borderRadius: BorderRadius.circular(30),
-        color: isEmpty
-            ? Colors.grey.shade700
-            : AppTheme.primaryGreen,
-        child: Container(
-          padding:
-          const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            gradient: LinearGradient(
-              colors: isEmpty
-                  ? [Colors.grey.shade700, Colors.grey.shade600]
-                  : [
-                AppTheme.primaryGreen,
-                AppTheme.primaryGreen.withValues(alpha: 0.85),
-              ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: isEmpty ? AppTheme.textMuted : AppTheme.deepForest,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.deepForest.withValues(alpha: 0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Icon(Icons.shopping_cart,
-                      color: Colors.white, size: 26),
-                  if (!isEmpty)
-                    Positioned(
-                      top: -6,
-                      right: -6,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 18,
-                          minHeight: 18,
-                        ),
-                        child: Text(
-                          '$_cartItemCount',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.shopping_cart,
+                    color: Colors.white, size: 24),
+                if (!isEmpty)
+                  Positioned(
+                    top: -6,
+                    right: -6,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: AppTheme.warningRed,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Text(
+                        '$_cartItemCount',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    isEmpty ? 'Cart is empty' : 'View Cart',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
                   ),
-                  Text(
-                    isEmpty
-                        ? 'Tap to open'
-                        : 'KSh ${(_cartTotalMinor / 100).toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
+              ],
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  isEmpty ? 'Cart is empty' : 'View cart',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                Text(
+                  isEmpty
+                      ? 'Tap to open'
+                      : 'KSh ${(_cartTotalMinor / 100).toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -368,15 +407,15 @@ class _SalesScreenState extends State<SalesScreen> {
         if (prods.isEmpty) {
           return const Center(
             child: Text('No products found',
-                style: TextStyle(color: AppTheme.textLight)),
+                style: TextStyle(color: AppTheme.textSecondary)),
           );
         }
 
         return GridView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 200,
-            childAspectRatio: 0.85,
+            maxCrossAxisExtent: 190,
+            childAspectRatio: 0.82,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
           ),
@@ -384,13 +423,19 @@ class _SalesScreenState extends State<SalesScreen> {
           itemBuilder: (context, index) {
             final p = prods[index];
             return GestureDetector(
-              onTap: () {
-                _addToCart(p);
-                if (!_cartExpanded) {
-                  setState(() => _cartExpanded = true);
-                }
-              },
-              child: Card(
+              onTap: () => _addToCart(p),   // ⭐ no auto-expand
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.deepForest.withValues(alpha: 0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
@@ -398,12 +443,12 @@ class _SalesScreenState extends State<SalesScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       SizedBox(
-                        height: 60,
+                        height: 80,
                         width: double.infinity,
                         child: ProductImage(
                           imagePath: p.imagePath,
-                          size: 60,
-                          borderRadius: 8,
+                          size: 80,
+                          borderRadius: 14,
                         ),
                       ),
                       Text(
@@ -411,8 +456,9 @@ class _SalesScreenState extends State<SalesScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textDark,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                       Text(
@@ -420,6 +466,7 @@ class _SalesScreenState extends State<SalesScreen> {
                         style: const TextStyle(
                           color: AppTheme.primaryGreen,
                           fontWeight: FontWeight.w600,
+                          fontSize: 13,
                         ),
                       ),
                     ],
@@ -435,19 +482,35 @@ class _SalesScreenState extends State<SalesScreen> {
 
   Widget _buildCart() {
     return Container(
-      color: Colors.white,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.deepForest.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    const Text('Current Order',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Current order',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () =>
@@ -455,14 +518,13 @@ class _SalesScreenState extends State<SalesScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryGreen
-                              .withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
+                          color: AppTheme.surfaceMuted,
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
                           Icons.keyboard_arrow_down,
-                          size: 20,
-                          color: AppTheme.primaryGreen,
+                          size: 18,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                     ),
@@ -471,56 +533,111 @@ class _SalesScreenState extends State<SalesScreen> {
                 if (_cart.isNotEmpty)
                   IconButton(
                     icon: const Icon(Icons.delete_outline,
-                        color: Colors.grey),
+                        color: AppTheme.textMuted),
                     onPressed: () => setState(() => _cart.clear()),
                   ),
               ],
             ),
           ),
-          const Divider(height: 1),
+          const Divider(height: 1, color: AppTheme.surfaceMuted),
           Expanded(
             child: _cart.isEmpty
                 ? const Center(
-              child: Text('Cart is empty',
-                  style: TextStyle(color: Colors.grey)),
+              child: Text('Your cart is empty',
+                  style: TextStyle(
+                      color: AppTheme.textMuted, fontSize: 13)),
             )
                 : ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 4),
               itemCount: _cart.length,
               itemBuilder: (context, index) {
                 final item = _cart[index];
-                return ListTile(
-                  title: Text(item.product.name,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w500)),
-                  subtitle: Text(
-                      'KSh ${(item.product.sellingPriceMinor / 100).toStringAsFixed(2)}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(
-                            Icons.remove_circle_outline,
-                            size: 20),
-                        onPressed: () => _removeFromCart(index),
-                      ),
-                      Text('${item.quantityMilli ~/ 1000}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16)),
-                      IconButton(
-                        icon: const Icon(
-                            Icons.add_circle_outline,
-                            size: 20,
-                            color: AppTheme.primaryGreen),
-                        onPressed: () => _addToCart(item.product),
-                      ),
-                    ],
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color:
+                      AppTheme.surfaceMuted.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.product.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'KSh ${(item.product.sellingPriceMinor / 100).toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                    Icons.remove_rounded,
+                                    size: 18),
+                                color: AppTheme.textPrimary,
+                                onPressed: () =>
+                                    _removeFromCart(index),
+                                constraints: const BoxConstraints(
+                                    minWidth: 32, minHeight: 32),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4),
+                                child: Text(
+                                  '${item.quantityMilli ~/ 1000}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add_rounded,
+                                    size: 18),
+                                color: AppTheme.primaryGreen,
+                                onPressed: () =>
+                                    _addToCart(item.product),
+                                constraints: const BoxConstraints(
+                                    minWidth: 32, minHeight: 32),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
             ),
           ),
-          const Divider(height: 1),
+          const Divider(height: 1, color: AppTheme.surfaceMuted),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -530,32 +647,45 @@ class _SalesScreenState extends State<SalesScreen> {
                   children: [
                     const Text('Total',
                         style: TextStyle(
-                            fontSize: 16,
-                            color: AppTheme.textLight)),
+                            fontSize: 13,
+                            color: AppTheme.textSecondary)),
                     Text(
                       'KSh ${(_cartTotalMinor / 100).toStringAsFixed(2)}',
                       style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textDark),
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                        letterSpacing: -0.4,
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _cart.isEmpty ? null : _holdOrder,
-                        icon: const Icon(Icons.pause_circle_outline),
+                        icon: const Icon(Icons.pause_circle_outline,
+                            size: 18),
                         label: const Text('Hold'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.textPrimary,
+                          side: const BorderSide(
+                              color: AppTheme.surfaceMuted),
+                          padding:
+                          const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: _cart.isEmpty ? null : _payNow,
-                        icon: const Icon(Icons.check),
+                        icon: const Icon(Icons.check, size: 18),
                         label: const Text('Pay'),
                       ),
                     ),

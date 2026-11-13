@@ -33,13 +33,20 @@ class _StockReportScreenState extends State<StockReportScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Stock Report'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppTheme.inkBlack),
+          onPressed: () => Navigator.pop(context),
+        ),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: AppTheme.primaryGreen,
-          labelColor: AppTheme.primaryGreen,
-          unselectedLabelColor: AppTheme.textLight,
+          indicatorColor: AppTheme.brightGreen,
+          labelColor: AppTheme.inkBlack,
+          unselectedLabelColor: AppTheme.onLightMuted,
           tabs: const [
             Tab(text: 'Summary'),
             Tab(text: 'Ledger'),
@@ -69,58 +76,70 @@ class _StockReportScreenState extends State<StockReportScreen>
         final rows = snapshot.data!;
 
         if (rows.isEmpty) {
-          return const Center(child: Text('No products yet.'));
+          return const Center(
+            child: Text('No products yet.',
+                style: TextStyle(color: AppTheme.onLightMuted)),
+          );
         }
 
-        // Compute grand totals
         int grandIn = 0, grandOut = 0, grandBalance = 0;
-        double grandValue = 0;
+        int grandValueMinor = 0;
         for (final r in rows) {
           grandIn += r['totalIn'] as int;
           grandOut += r['totalOut'] as int;
           grandBalance += r['balance'] as int;
-          final p = r['product'] as Product;
-          grandValue += (r['balance'] as int) / 1000.0 * (p.costPriceMinor / 100.0);
+          grandValueMinor += r['valueMinor'] as int;
         }
+        final grandValue = grandValueMinor / 100.0;
 
         return Column(
           children: [
-            // Totals card
+            // ─── Totals card ───
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Card(
-                color: AppTheme.primaryGreen.withValues(alpha: 0.08),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _totalsItem('Stock In', '${(grandIn / 1000).toStringAsFixed(0)}'),
-                      _totalsItem('Stock Out', '${(grandOut / 1000).toStringAsFixed(0)}'),
-                      _totalsItem('Balance', '${(grandBalance / 1000).toStringAsFixed(0)}'),
-                      _totalsItem(
-                          'Value', 'KSh ${grandValue.toStringAsFixed(0)}'),
-                    ],
-                  ),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppTheme.heroGreen,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _totalsItem('STOCK IN',
+                        (grandIn / 1000).toStringAsFixed(0)),
+                    _totalsItem('STOCK OUT',
+                        (grandOut / 1000).toStringAsFixed(0)),
+                    _totalsItem('BALANCE',
+                        (grandBalance / 1000).toStringAsFixed(0)),
+                    _totalsItem(
+                        'VALUE', 'KSh ${grandValue.toStringAsFixed(0)}'),
+                  ],
                 ),
               ),
             ),
-            // Table
+
+            // ─── Product list ───
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: rows.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
+                separatorBuilder: (_, __) => Divider(
+                  height: 24,
+                  color: AppTheme.inkBlack.withValues(alpha: 0.06),
+                ),
                 itemBuilder: (context, index) {
                   final row = rows[index];
                   final p = row['product'] as Product;
                   final totalIn = row['totalIn'] as int;
                   final totalOut = row['totalOut'] as int;
                   final balance = row['balance'] as int;
+                  final avgCostMinor = row['avgCostMinor'] as int;
+                  final valueMinor = row['valueMinor'] as int;
                   final isLow = row['isLow'] as bool;
 
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -130,45 +149,55 @@ class _StockReportScreenState extends State<StockReportScreen>
                               child: Text(
                                 p.name,
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                  color: AppTheme.inkBlack,
                                 ),
                               ),
                             ),
                             Text(
-                              '${(balance / 1000).toStringAsFixed(2)}',
+                              (balance / 1000).toStringAsFixed(2),
                               style: TextStyle(
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w700,
                                 fontSize: 16,
                                 color: isLow
-                                    ? AppTheme.warningRed
-                                    : AppTheme.textDark,
+                                    ? AppTheme.burntOrange
+                                    : AppTheme.heroGreen,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Row(
                           children: [
                             _smallChip(
                               '+${(totalIn / 1000).toStringAsFixed(0)}',
-                              Colors.green,
+                              AppTheme.brightGreen,
                             ),
                             const SizedBox(width: 6),
                             _smallChip(
                               '-${(totalOut / 1000).toStringAsFixed(0)}',
-                              Colors.red,
+                              AppTheme.midGreen,
                             ),
                             const SizedBox(width: 8),
                             if (isLow)
                               const Text(
                                 'LOW STOCK',
                                 style: TextStyle(
-                                  color: AppTheme.warningRed,
+                                  color: AppTheme.burntOrange,
                                   fontSize: 10,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
+                            const Spacer(),
+                            Text(
+                              'Avg: KSh ${(avgCostMinor / 100).toStringAsFixed(2)} • '
+                                  'Val: KSh ${(valueMinor / 100).toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.onLightMuted,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -187,14 +216,25 @@ class _StockReportScreenState extends State<StockReportScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 11, color: AppTheme.textLight)),
-        const SizedBox(height: 4),
-        Text(value,
-            style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: AppTheme.textDark)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.2,
+            color: Colors.white.withValues(alpha: 0.6),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+            color: Colors.white,
+            letterSpacing: -0.4,
+          ),
+        ),
       ],
     );
   }
@@ -203,13 +243,13 @@ class _StockReportScreenState extends State<StockReportScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         text,
         style: TextStyle(
-            fontSize: 11, color: color, fontWeight: FontWeight.bold),
+            fontSize: 10, color: color, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -241,7 +281,7 @@ class _StockReportScreenState extends State<StockReportScreen>
               if (movements.isEmpty) {
                 return const Center(
                   child: Text('No stock movements recorded yet.',
-                      style: TextStyle(color: AppTheme.textLight)),
+                      style: TextStyle(color: AppTheme.onLightMuted)),
                 );
               }
 
@@ -251,8 +291,7 @@ class _StockReportScreenState extends State<StockReportScreen>
                   final names = nameSnapshot.data ?? {};
 
                   final filtered = movements.where((m) {
-                    final name =
-                    (names[m.productId] ?? '').toLowerCase();
+                    final name = (names[m.productId] ?? '').toLowerCase();
                     final note = (m.note ?? '').toLowerCase();
                     final type = m.type.toLowerCase();
                     return name.contains(_search) ||
@@ -263,19 +302,21 @@ class _StockReportScreenState extends State<StockReportScreen>
                   if (filtered.isEmpty) {
                     return const Center(
                       child: Text('No movements match your search.',
-                          style: TextStyle(color: AppTheme.textLight)),
+                          style: TextStyle(color: AppTheme.onLightMuted)),
                     );
                   }
 
                   return ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      color: AppTheme.inkBlack.withValues(alpha: 0.06),
+                    ),
                     itemBuilder: (context, index) {
                       final m = filtered[index];
                       final isIn = m.quantityMilli > 0;
-                      final productName =
-                          names[m.productId] ?? '(deleted)';
+                      final productName = names[m.productId] ?? '(deleted)';
                       final qty = (m.quantityMilli / 1000).toStringAsFixed(
                           m.quantityMilli % 1000 == 0 ? 0 : 2);
 
@@ -285,13 +326,19 @@ class _StockReportScreenState extends State<StockReportScreen>
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: (isIn ? Colors.green : Colors.red)
-                                .withValues(alpha: 0.1),
+                            color: (isIn
+                                ? AppTheme.brightGreen
+                                : AppTheme.burntOrange)
+                                .withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
-                            isIn ? Icons.arrow_downward : Icons.arrow_upward,
-                            color: isIn ? Colors.green : Colors.red,
+                            isIn
+                                ? Icons.arrow_downward
+                                : Icons.arrow_upward,
+                            color: isIn
+                                ? AppTheme.heroGreen
+                                : AppTheme.burntOrange,
                             size: 18,
                           ),
                         ),
@@ -301,17 +348,18 @@ class _StockReportScreenState extends State<StockReportScreen>
                               child: Text(
                                 productName,
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: AppTheme.inkBlack),
                               ),
                             ),
                             Text(
                               '${isIn ? '+' : ''}$qty',
                               style: TextStyle(
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w700,
                                 color: isIn
-                                    ? Colors.green.shade700
-                                    : Colors.red.shade700,
+                                    ? AppTheme.heroGreen
+                                    : AppTheme.burntOrange,
                                 fontSize: 14,
                               ),
                             ),
@@ -325,16 +373,16 @@ class _StockReportScreenState extends State<StockReportScreen>
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryGreen
-                                      .withValues(alpha: 0.1),
+                                  color: AppTheme.heroGreen
+                                      .withValues(alpha: 0.08),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   _prettyType(m.type),
                                   style: const TextStyle(
                                       fontSize: 10,
-                                      color: AppTheme.primaryGreen,
-                                      fontWeight: FontWeight.bold),
+                                      color: AppTheme.heroGreen,
+                                      fontWeight: FontWeight.w600),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -343,8 +391,17 @@ class _StockReportScreenState extends State<StockReportScreen>
                                     .format(m.createdAt),
                                 style: const TextStyle(
                                     fontSize: 11,
-                                    color: AppTheme.textLight),
+                                    color: AppTheme.onLightMuted),
                               ),
+                              if (m.unitCostMinor != null) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  '@ KSh ${(m.unitCostMinor! / 100).toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.onLightMuted),
+                                ),
+                              ],
                             ],
                           ),
                         ),

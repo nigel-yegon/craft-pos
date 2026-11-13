@@ -1,27 +1,47 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:drift/drift.dart' as drift;
 import 'app.dart';
 import 'core/database/app_database.dart';
 import 'core/database/seed_data.dart';
 import 'core/providers/database_provider.dart';
 
+Future<void> _handlePendingRestore() async {
+  try {
+    final dbFolder = await getApplicationDocumentsDirectory();
+    final mainDb = File(p.join(dbFolder.path, 'craft_pos.sqlite'));
+    final stagedFile = File(p.join(dbFolder.path, 'craft_pos_restore_pending.sqlite'));
+
+    if (await stagedFile.exists()) {
+      // 1. Delete the old database
+      if (await mainDb.exists()) {
+        await mainDb.delete();
+      }
+      // 2. Move the staged file to become the new active database
+      await stagedFile.rename(mainDb.path);
+
+      debugPrint('✅ Database restored successfully from backup.');
+    }
+  } catch (e) {
+    debugPrint('❌ Error applying database restore: $e');
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final prefs = await SharedPreferences.getInstance();
-  final hasSeenSplash = prefs.getBool('hasSeenSplash') ?? false;
-  final initialRoute = hasSeenSplash ? '/dashboard' : '/splash';
+  // 1. Check for and apply any staged restores BEFORE opening the DB
+  await _handlePendingRestore();
 
+  // 2. Initialize DB
   final database = AppDatabase();
 
-  // ⭐ Seed demo data if the database is empty.
-  //    If a real business already exists, this does nothing.
+  // 3. Seed if empty (only if it's a fresh install, won't override a restore)
   await SeedData.seedIfEmpty(database);
 
-  // Fallback: if seed somehow skipped (e.g., real business exists but no
-  // default row with 'default-business-id'), ensure a row exists.
   final businesses = await database.select(database.businesses).get();
   if (businesses.isEmpty) {
     await database.into(database.businesses).insert(
@@ -38,7 +58,7 @@ void main() async {
       overrides: [
         databaseProvider.overrideWithValue(database),
       ],
-      child: App(database: database, initialRoute: initialRoute),
+      child: App(database: database, initialRoute: '/dashboard'),
     ),
   );
 }
