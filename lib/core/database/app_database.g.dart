@@ -5502,6 +5502,1131 @@ class RecurringExpensesCompanion extends UpdateCompanion<RecurringExpense> {
   }
 }
 
+class $SubscriptionsTable extends Subscriptions
+    with TableInfo<$SubscriptionsTable, SubscriptionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SubscriptionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _planMeta = const VerificationMeta('plan');
+  @override
+  late final GeneratedColumn<String> plan = GeneratedColumn<String>(
+    'plan',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startedAt = GeneratedColumn<DateTime>(
+    'started_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _activeMeta = const VerificationMeta('active');
+  @override
+  late final GeneratedColumn<bool> active = GeneratedColumn<bool>(
+    'active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    plan,
+    startedAt,
+    expiresAt,
+    active,
+    source,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'subscriptions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SubscriptionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('plan')) {
+      context.handle(
+        _planMeta,
+        plan.isAcceptableOrUnknown(data['plan']!, _planMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_planMeta);
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startedAtMeta);
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expiresAtMeta);
+    }
+    if (data.containsKey('active')) {
+      context.handle(
+        _activeMeta,
+        active.isAcceptableOrUnknown(data['active']!, _activeMeta),
+      );
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SubscriptionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SubscriptionRow(
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}id'],
+          )!,
+      plan:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}plan'],
+          )!,
+      startedAt:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.dateTime,
+            data['${effectivePrefix}started_at'],
+          )!,
+      expiresAt:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.dateTime,
+            data['${effectivePrefix}expires_at'],
+          )!,
+      active:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.bool,
+            data['${effectivePrefix}active'],
+          )!,
+      source:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}source'],
+          )!,
+      updatedAt:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.dateTime,
+            data['${effectivePrefix}updated_at'],
+          )!,
+    );
+  }
+
+  @override
+  $SubscriptionsTable createAlias(String alias) {
+    return $SubscriptionsTable(attachedDatabase, alias);
+  }
+}
+
+class SubscriptionRow extends DataClass implements Insertable<SubscriptionRow> {
+  final int id;
+  final String plan;
+  final DateTime startedAt;
+  final DateTime expiresAt;
+  final bool active;
+  final String source;
+  final DateTime updatedAt;
+  const SubscriptionRow({
+    required this.id,
+    required this.plan,
+    required this.startedAt,
+    required this.expiresAt,
+    required this.active,
+    required this.source,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['plan'] = Variable<String>(plan);
+    map['started_at'] = Variable<DateTime>(startedAt);
+    map['expires_at'] = Variable<DateTime>(expiresAt);
+    map['active'] = Variable<bool>(active);
+    map['source'] = Variable<String>(source);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  SubscriptionsCompanion toCompanion(bool nullToAbsent) {
+    return SubscriptionsCompanion(
+      id: Value(id),
+      plan: Value(plan),
+      startedAt: Value(startedAt),
+      expiresAt: Value(expiresAt),
+      active: Value(active),
+      source: Value(source),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory SubscriptionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SubscriptionRow(
+      id: serializer.fromJson<int>(json['id']),
+      plan: serializer.fromJson<String>(json['plan']),
+      startedAt: serializer.fromJson<DateTime>(json['startedAt']),
+      expiresAt: serializer.fromJson<DateTime>(json['expiresAt']),
+      active: serializer.fromJson<bool>(json['active']),
+      source: serializer.fromJson<String>(json['source']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'plan': serializer.toJson<String>(plan),
+      'startedAt': serializer.toJson<DateTime>(startedAt),
+      'expiresAt': serializer.toJson<DateTime>(expiresAt),
+      'active': serializer.toJson<bool>(active),
+      'source': serializer.toJson<String>(source),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  SubscriptionRow copyWith({
+    int? id,
+    String? plan,
+    DateTime? startedAt,
+    DateTime? expiresAt,
+    bool? active,
+    String? source,
+    DateTime? updatedAt,
+  }) => SubscriptionRow(
+    id: id ?? this.id,
+    plan: plan ?? this.plan,
+    startedAt: startedAt ?? this.startedAt,
+    expiresAt: expiresAt ?? this.expiresAt,
+    active: active ?? this.active,
+    source: source ?? this.source,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  SubscriptionRow copyWithCompanion(SubscriptionsCompanion data) {
+    return SubscriptionRow(
+      id: data.id.present ? data.id.value : this.id,
+      plan: data.plan.present ? data.plan.value : this.plan,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      active: data.active.present ? data.active.value : this.active,
+      source: data.source.present ? data.source.value : this.source,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SubscriptionRow(')
+          ..write('id: $id, ')
+          ..write('plan: $plan, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('active: $active, ')
+          ..write('source: $source, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, plan, startedAt, expiresAt, active, source, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SubscriptionRow &&
+          other.id == this.id &&
+          other.plan == this.plan &&
+          other.startedAt == this.startedAt &&
+          other.expiresAt == this.expiresAt &&
+          other.active == this.active &&
+          other.source == this.source &&
+          other.updatedAt == this.updatedAt);
+}
+
+class SubscriptionsCompanion extends UpdateCompanion<SubscriptionRow> {
+  final Value<int> id;
+  final Value<String> plan;
+  final Value<DateTime> startedAt;
+  final Value<DateTime> expiresAt;
+  final Value<bool> active;
+  final Value<String> source;
+  final Value<DateTime> updatedAt;
+  const SubscriptionsCompanion({
+    this.id = const Value.absent(),
+    this.plan = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.active = const Value.absent(),
+    this.source = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  SubscriptionsCompanion.insert({
+    this.id = const Value.absent(),
+    required String plan,
+    required DateTime startedAt,
+    required DateTime expiresAt,
+    this.active = const Value.absent(),
+    required String source,
+    this.updatedAt = const Value.absent(),
+  }) : plan = Value(plan),
+       startedAt = Value(startedAt),
+       expiresAt = Value(expiresAt),
+       source = Value(source);
+  static Insertable<SubscriptionRow> custom({
+    Expression<int>? id,
+    Expression<String>? plan,
+    Expression<DateTime>? startedAt,
+    Expression<DateTime>? expiresAt,
+    Expression<bool>? active,
+    Expression<String>? source,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (plan != null) 'plan': plan,
+      if (startedAt != null) 'started_at': startedAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (active != null) 'active': active,
+      if (source != null) 'source': source,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  SubscriptionsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? plan,
+    Value<DateTime>? startedAt,
+    Value<DateTime>? expiresAt,
+    Value<bool>? active,
+    Value<String>? source,
+    Value<DateTime>? updatedAt,
+  }) {
+    return SubscriptionsCompanion(
+      id: id ?? this.id,
+      plan: plan ?? this.plan,
+      startedAt: startedAt ?? this.startedAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      active: active ?? this.active,
+      source: source ?? this.source,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (plan.present) {
+      map['plan'] = Variable<String>(plan.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<DateTime>(startedAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
+    if (active.present) {
+      map['active'] = Variable<bool>(active.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SubscriptionsCompanion(')
+          ..write('id: $id, ')
+          ..write('plan: $plan, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('active: $active, ')
+          ..write('source: $source, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PaymentAttemptsTable extends PaymentAttempts
+    with TableInfo<$PaymentAttemptsTable, PaymentAttemptRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PaymentAttemptsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _checkoutRequestIdMeta = const VerificationMeta(
+    'checkoutRequestId',
+  );
+  @override
+  late final GeneratedColumn<String> checkoutRequestId =
+      GeneratedColumn<String>(
+        'checkout_request_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _merchantRequestIdMeta = const VerificationMeta(
+    'merchantRequestId',
+  );
+  @override
+  late final GeneratedColumn<String> merchantRequestId =
+      GeneratedColumn<String>(
+        'merchant_request_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _amountMeta = const VerificationMeta('amount');
+  @override
+  late final GeneratedColumn<int> amount = GeneratedColumn<int>(
+    'amount',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _planMeta = const VerificationMeta('plan');
+  @override
+  late final GeneratedColumn<String> plan = GeneratedColumn<String>(
+    'plan',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _phoneMeta = const VerificationMeta('phone');
+  @override
+  late final GeneratedColumn<String> phone = GeneratedColumn<String>(
+    'phone',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receiptMeta = const VerificationMeta(
+    'receipt',
+  );
+  @override
+  late final GeneratedColumn<String> receipt = GeneratedColumn<String>(
+    'receipt',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _messageMeta = const VerificationMeta(
+    'message',
+  );
+  @override
+  late final GeneratedColumn<String> message = GeneratedColumn<String>(
+    'message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _resolvedAtMeta = const VerificationMeta(
+    'resolvedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> resolvedAt = GeneratedColumn<DateTime>(
+    'resolved_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    checkoutRequestId,
+    merchantRequestId,
+    amount,
+    plan,
+    phone,
+    state,
+    receipt,
+    message,
+    createdAt,
+    resolvedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'payment_attempts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PaymentAttemptRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('checkout_request_id')) {
+      context.handle(
+        _checkoutRequestIdMeta,
+        checkoutRequestId.isAcceptableOrUnknown(
+          data['checkout_request_id']!,
+          _checkoutRequestIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('merchant_request_id')) {
+      context.handle(
+        _merchantRequestIdMeta,
+        merchantRequestId.isAcceptableOrUnknown(
+          data['merchant_request_id']!,
+          _merchantRequestIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('amount')) {
+      context.handle(
+        _amountMeta,
+        amount.isAcceptableOrUnknown(data['amount']!, _amountMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_amountMeta);
+    }
+    if (data.containsKey('plan')) {
+      context.handle(
+        _planMeta,
+        plan.isAcceptableOrUnknown(data['plan']!, _planMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_planMeta);
+    }
+    if (data.containsKey('phone')) {
+      context.handle(
+        _phoneMeta,
+        phone.isAcceptableOrUnknown(data['phone']!, _phoneMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_phoneMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('receipt')) {
+      context.handle(
+        _receiptMeta,
+        receipt.isAcceptableOrUnknown(data['receipt']!, _receiptMeta),
+      );
+    }
+    if (data.containsKey('message')) {
+      context.handle(
+        _messageMeta,
+        message.isAcceptableOrUnknown(data['message']!, _messageMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('resolved_at')) {
+      context.handle(
+        _resolvedAtMeta,
+        resolvedAt.isAcceptableOrUnknown(data['resolved_at']!, _resolvedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PaymentAttemptRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PaymentAttemptRow(
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}id'],
+          )!,
+      checkoutRequestId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}checkout_request_id'],
+      ),
+      merchantRequestId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}merchant_request_id'],
+      ),
+      amount:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}amount'],
+          )!,
+      plan:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}plan'],
+          )!,
+      phone:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}phone'],
+          )!,
+      state:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}state'],
+          )!,
+      receipt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}receipt'],
+      ),
+      message: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message'],
+      ),
+      createdAt:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.dateTime,
+            data['${effectivePrefix}created_at'],
+          )!,
+      resolvedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}resolved_at'],
+      ),
+    );
+  }
+
+  @override
+  $PaymentAttemptsTable createAlias(String alias) {
+    return $PaymentAttemptsTable(attachedDatabase, alias);
+  }
+}
+
+class PaymentAttemptRow extends DataClass
+    implements Insertable<PaymentAttemptRow> {
+  final int id;
+  final String? checkoutRequestId;
+  final String? merchantRequestId;
+  final int amount;
+  final String plan;
+  final String phone;
+  final String state;
+  final String? receipt;
+  final String? message;
+  final DateTime createdAt;
+  final DateTime? resolvedAt;
+  const PaymentAttemptRow({
+    required this.id,
+    this.checkoutRequestId,
+    this.merchantRequestId,
+    required this.amount,
+    required this.plan,
+    required this.phone,
+    required this.state,
+    this.receipt,
+    this.message,
+    required this.createdAt,
+    this.resolvedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || checkoutRequestId != null) {
+      map['checkout_request_id'] = Variable<String>(checkoutRequestId);
+    }
+    if (!nullToAbsent || merchantRequestId != null) {
+      map['merchant_request_id'] = Variable<String>(merchantRequestId);
+    }
+    map['amount'] = Variable<int>(amount);
+    map['plan'] = Variable<String>(plan);
+    map['phone'] = Variable<String>(phone);
+    map['state'] = Variable<String>(state);
+    if (!nullToAbsent || receipt != null) {
+      map['receipt'] = Variable<String>(receipt);
+    }
+    if (!nullToAbsent || message != null) {
+      map['message'] = Variable<String>(message);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || resolvedAt != null) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt);
+    }
+    return map;
+  }
+
+  PaymentAttemptsCompanion toCompanion(bool nullToAbsent) {
+    return PaymentAttemptsCompanion(
+      id: Value(id),
+      checkoutRequestId:
+          checkoutRequestId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(checkoutRequestId),
+      merchantRequestId:
+          merchantRequestId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(merchantRequestId),
+      amount: Value(amount),
+      plan: Value(plan),
+      phone: Value(phone),
+      state: Value(state),
+      receipt:
+          receipt == null && nullToAbsent
+              ? const Value.absent()
+              : Value(receipt),
+      message:
+          message == null && nullToAbsent
+              ? const Value.absent()
+              : Value(message),
+      createdAt: Value(createdAt),
+      resolvedAt:
+          resolvedAt == null && nullToAbsent
+              ? const Value.absent()
+              : Value(resolvedAt),
+    );
+  }
+
+  factory PaymentAttemptRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PaymentAttemptRow(
+      id: serializer.fromJson<int>(json['id']),
+      checkoutRequestId: serializer.fromJson<String?>(
+        json['checkoutRequestId'],
+      ),
+      merchantRequestId: serializer.fromJson<String?>(
+        json['merchantRequestId'],
+      ),
+      amount: serializer.fromJson<int>(json['amount']),
+      plan: serializer.fromJson<String>(json['plan']),
+      phone: serializer.fromJson<String>(json['phone']),
+      state: serializer.fromJson<String>(json['state']),
+      receipt: serializer.fromJson<String?>(json['receipt']),
+      message: serializer.fromJson<String?>(json['message']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      resolvedAt: serializer.fromJson<DateTime?>(json['resolvedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'checkoutRequestId': serializer.toJson<String?>(checkoutRequestId),
+      'merchantRequestId': serializer.toJson<String?>(merchantRequestId),
+      'amount': serializer.toJson<int>(amount),
+      'plan': serializer.toJson<String>(plan),
+      'phone': serializer.toJson<String>(phone),
+      'state': serializer.toJson<String>(state),
+      'receipt': serializer.toJson<String?>(receipt),
+      'message': serializer.toJson<String?>(message),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'resolvedAt': serializer.toJson<DateTime?>(resolvedAt),
+    };
+  }
+
+  PaymentAttemptRow copyWith({
+    int? id,
+    Value<String?> checkoutRequestId = const Value.absent(),
+    Value<String?> merchantRequestId = const Value.absent(),
+    int? amount,
+    String? plan,
+    String? phone,
+    String? state,
+    Value<String?> receipt = const Value.absent(),
+    Value<String?> message = const Value.absent(),
+    DateTime? createdAt,
+    Value<DateTime?> resolvedAt = const Value.absent(),
+  }) => PaymentAttemptRow(
+    id: id ?? this.id,
+    checkoutRequestId:
+        checkoutRequestId.present
+            ? checkoutRequestId.value
+            : this.checkoutRequestId,
+    merchantRequestId:
+        merchantRequestId.present
+            ? merchantRequestId.value
+            : this.merchantRequestId,
+    amount: amount ?? this.amount,
+    plan: plan ?? this.plan,
+    phone: phone ?? this.phone,
+    state: state ?? this.state,
+    receipt: receipt.present ? receipt.value : this.receipt,
+    message: message.present ? message.value : this.message,
+    createdAt: createdAt ?? this.createdAt,
+    resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
+  );
+  PaymentAttemptRow copyWithCompanion(PaymentAttemptsCompanion data) {
+    return PaymentAttemptRow(
+      id: data.id.present ? data.id.value : this.id,
+      checkoutRequestId:
+          data.checkoutRequestId.present
+              ? data.checkoutRequestId.value
+              : this.checkoutRequestId,
+      merchantRequestId:
+          data.merchantRequestId.present
+              ? data.merchantRequestId.value
+              : this.merchantRequestId,
+      amount: data.amount.present ? data.amount.value : this.amount,
+      plan: data.plan.present ? data.plan.value : this.plan,
+      phone: data.phone.present ? data.phone.value : this.phone,
+      state: data.state.present ? data.state.value : this.state,
+      receipt: data.receipt.present ? data.receipt.value : this.receipt,
+      message: data.message.present ? data.message.value : this.message,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      resolvedAt:
+          data.resolvedAt.present ? data.resolvedAt.value : this.resolvedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PaymentAttemptRow(')
+          ..write('id: $id, ')
+          ..write('checkoutRequestId: $checkoutRequestId, ')
+          ..write('merchantRequestId: $merchantRequestId, ')
+          ..write('amount: $amount, ')
+          ..write('plan: $plan, ')
+          ..write('phone: $phone, ')
+          ..write('state: $state, ')
+          ..write('receipt: $receipt, ')
+          ..write('message: $message, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('resolvedAt: $resolvedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    checkoutRequestId,
+    merchantRequestId,
+    amount,
+    plan,
+    phone,
+    state,
+    receipt,
+    message,
+    createdAt,
+    resolvedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PaymentAttemptRow &&
+          other.id == this.id &&
+          other.checkoutRequestId == this.checkoutRequestId &&
+          other.merchantRequestId == this.merchantRequestId &&
+          other.amount == this.amount &&
+          other.plan == this.plan &&
+          other.phone == this.phone &&
+          other.state == this.state &&
+          other.receipt == this.receipt &&
+          other.message == this.message &&
+          other.createdAt == this.createdAt &&
+          other.resolvedAt == this.resolvedAt);
+}
+
+class PaymentAttemptsCompanion extends UpdateCompanion<PaymentAttemptRow> {
+  final Value<int> id;
+  final Value<String?> checkoutRequestId;
+  final Value<String?> merchantRequestId;
+  final Value<int> amount;
+  final Value<String> plan;
+  final Value<String> phone;
+  final Value<String> state;
+  final Value<String?> receipt;
+  final Value<String?> message;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> resolvedAt;
+  const PaymentAttemptsCompanion({
+    this.id = const Value.absent(),
+    this.checkoutRequestId = const Value.absent(),
+    this.merchantRequestId = const Value.absent(),
+    this.amount = const Value.absent(),
+    this.plan = const Value.absent(),
+    this.phone = const Value.absent(),
+    this.state = const Value.absent(),
+    this.receipt = const Value.absent(),
+    this.message = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+  });
+  PaymentAttemptsCompanion.insert({
+    this.id = const Value.absent(),
+    this.checkoutRequestId = const Value.absent(),
+    this.merchantRequestId = const Value.absent(),
+    required int amount,
+    required String plan,
+    required String phone,
+    required String state,
+    this.receipt = const Value.absent(),
+    this.message = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+  }) : amount = Value(amount),
+       plan = Value(plan),
+       phone = Value(phone),
+       state = Value(state);
+  static Insertable<PaymentAttemptRow> custom({
+    Expression<int>? id,
+    Expression<String>? checkoutRequestId,
+    Expression<String>? merchantRequestId,
+    Expression<int>? amount,
+    Expression<String>? plan,
+    Expression<String>? phone,
+    Expression<String>? state,
+    Expression<String>? receipt,
+    Expression<String>? message,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? resolvedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (checkoutRequestId != null) 'checkout_request_id': checkoutRequestId,
+      if (merchantRequestId != null) 'merchant_request_id': merchantRequestId,
+      if (amount != null) 'amount': amount,
+      if (plan != null) 'plan': plan,
+      if (phone != null) 'phone': phone,
+      if (state != null) 'state': state,
+      if (receipt != null) 'receipt': receipt,
+      if (message != null) 'message': message,
+      if (createdAt != null) 'created_at': createdAt,
+      if (resolvedAt != null) 'resolved_at': resolvedAt,
+    });
+  }
+
+  PaymentAttemptsCompanion copyWith({
+    Value<int>? id,
+    Value<String?>? checkoutRequestId,
+    Value<String?>? merchantRequestId,
+    Value<int>? amount,
+    Value<String>? plan,
+    Value<String>? phone,
+    Value<String>? state,
+    Value<String?>? receipt,
+    Value<String?>? message,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? resolvedAt,
+  }) {
+    return PaymentAttemptsCompanion(
+      id: id ?? this.id,
+      checkoutRequestId: checkoutRequestId ?? this.checkoutRequestId,
+      merchantRequestId: merchantRequestId ?? this.merchantRequestId,
+      amount: amount ?? this.amount,
+      plan: plan ?? this.plan,
+      phone: phone ?? this.phone,
+      state: state ?? this.state,
+      receipt: receipt ?? this.receipt,
+      message: message ?? this.message,
+      createdAt: createdAt ?? this.createdAt,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (checkoutRequestId.present) {
+      map['checkout_request_id'] = Variable<String>(checkoutRequestId.value);
+    }
+    if (merchantRequestId.present) {
+      map['merchant_request_id'] = Variable<String>(merchantRequestId.value);
+    }
+    if (amount.present) {
+      map['amount'] = Variable<int>(amount.value);
+    }
+    if (plan.present) {
+      map['plan'] = Variable<String>(plan.value);
+    }
+    if (phone.present) {
+      map['phone'] = Variable<String>(phone.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (receipt.present) {
+      map['receipt'] = Variable<String>(receipt.value);
+    }
+    if (message.present) {
+      map['message'] = Variable<String>(message.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (resolvedAt.present) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PaymentAttemptsCompanion(')
+          ..write('id: $id, ')
+          ..write('checkoutRequestId: $checkoutRequestId, ')
+          ..write('merchantRequestId: $merchantRequestId, ')
+          ..write('amount: $amount, ')
+          ..write('plan: $plan, ')
+          ..write('phone: $phone, ')
+          ..write('state: $state, ')
+          ..write('receipt: $receipt, ')
+          ..write('message: $message, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('resolvedAt: $resolvedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5516,6 +6641,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ExpensesTable expenses = $ExpensesTable(this);
   late final $RecurringExpensesTable recurringExpenses =
       $RecurringExpensesTable(this);
+  late final $SubscriptionsTable subscriptions = $SubscriptionsTable(this);
+  late final $PaymentAttemptsTable paymentAttempts = $PaymentAttemptsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5531,6 +6660,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     heldOrders,
     expenses,
     recurringExpenses,
+    subscriptions,
+    paymentAttempts,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -10830,6 +11961,595 @@ typedef $$RecurringExpensesTableProcessedTableManager =
       RecurringExpense,
       PrefetchHooks Function({bool businessId})
     >;
+typedef $$SubscriptionsTableCreateCompanionBuilder =
+    SubscriptionsCompanion Function({
+      Value<int> id,
+      required String plan,
+      required DateTime startedAt,
+      required DateTime expiresAt,
+      Value<bool> active,
+      required String source,
+      Value<DateTime> updatedAt,
+    });
+typedef $$SubscriptionsTableUpdateCompanionBuilder =
+    SubscriptionsCompanion Function({
+      Value<int> id,
+      Value<String> plan,
+      Value<DateTime> startedAt,
+      Value<DateTime> expiresAt,
+      Value<bool> active,
+      Value<String> source,
+      Value<DateTime> updatedAt,
+    });
+
+class $$SubscriptionsTableFilterComposer
+    extends Composer<_$AppDatabase, $SubscriptionsTable> {
+  $$SubscriptionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get plan => $composableBuilder(
+    column: $table.plan,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get active => $composableBuilder(
+    column: $table.active,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SubscriptionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SubscriptionsTable> {
+  $$SubscriptionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get plan => $composableBuilder(
+    column: $table.plan,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get active => $composableBuilder(
+    column: $table.active,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SubscriptionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SubscriptionsTable> {
+  $$SubscriptionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get plan =>
+      $composableBuilder(column: $table.plan, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get active =>
+      $composableBuilder(column: $table.active, builder: (column) => column);
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$SubscriptionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SubscriptionsTable,
+          SubscriptionRow,
+          $$SubscriptionsTableFilterComposer,
+          $$SubscriptionsTableOrderingComposer,
+          $$SubscriptionsTableAnnotationComposer,
+          $$SubscriptionsTableCreateCompanionBuilder,
+          $$SubscriptionsTableUpdateCompanionBuilder,
+          (
+            SubscriptionRow,
+            BaseReferences<_$AppDatabase, $SubscriptionsTable, SubscriptionRow>,
+          ),
+          SubscriptionRow,
+          PrefetchHooks Function()
+        > {
+  $$SubscriptionsTableTableManager(_$AppDatabase db, $SubscriptionsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer:
+              () => $$SubscriptionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer:
+              () =>
+                  $$SubscriptionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer:
+              () => $$SubscriptionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> plan = const Value.absent(),
+                Value<DateTime> startedAt = const Value.absent(),
+                Value<DateTime> expiresAt = const Value.absent(),
+                Value<bool> active = const Value.absent(),
+                Value<String> source = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => SubscriptionsCompanion(
+                id: id,
+                plan: plan,
+                startedAt: startedAt,
+                expiresAt: expiresAt,
+                active: active,
+                source: source,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String plan,
+                required DateTime startedAt,
+                required DateTime expiresAt,
+                Value<bool> active = const Value.absent(),
+                required String source,
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => SubscriptionsCompanion.insert(
+                id: id,
+                plan: plan,
+                startedAt: startedAt,
+                expiresAt: expiresAt,
+                active: active,
+                source: source,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable<$SubscriptionsTable, SubscriptionRow>(
+                            table,
+                          ),
+                          BaseReferences<
+                            _$AppDatabase,
+                            $SubscriptionsTable,
+                            SubscriptionRow
+                          >(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SubscriptionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SubscriptionsTable,
+      SubscriptionRow,
+      $$SubscriptionsTableFilterComposer,
+      $$SubscriptionsTableOrderingComposer,
+      $$SubscriptionsTableAnnotationComposer,
+      $$SubscriptionsTableCreateCompanionBuilder,
+      $$SubscriptionsTableUpdateCompanionBuilder,
+      (
+        SubscriptionRow,
+        BaseReferences<_$AppDatabase, $SubscriptionsTable, SubscriptionRow>,
+      ),
+      SubscriptionRow,
+      PrefetchHooks Function()
+    >;
+typedef $$PaymentAttemptsTableCreateCompanionBuilder =
+    PaymentAttemptsCompanion Function({
+      Value<int> id,
+      Value<String?> checkoutRequestId,
+      Value<String?> merchantRequestId,
+      required int amount,
+      required String plan,
+      required String phone,
+      required String state,
+      Value<String?> receipt,
+      Value<String?> message,
+      Value<DateTime> createdAt,
+      Value<DateTime?> resolvedAt,
+    });
+typedef $$PaymentAttemptsTableUpdateCompanionBuilder =
+    PaymentAttemptsCompanion Function({
+      Value<int> id,
+      Value<String?> checkoutRequestId,
+      Value<String?> merchantRequestId,
+      Value<int> amount,
+      Value<String> plan,
+      Value<String> phone,
+      Value<String> state,
+      Value<String?> receipt,
+      Value<String?> message,
+      Value<DateTime> createdAt,
+      Value<DateTime?> resolvedAt,
+    });
+
+class $$PaymentAttemptsTableFilterComposer
+    extends Composer<_$AppDatabase, $PaymentAttemptsTable> {
+  $$PaymentAttemptsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get checkoutRequestId => $composableBuilder(
+    column: $table.checkoutRequestId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get merchantRequestId => $composableBuilder(
+    column: $table.merchantRequestId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get amount => $composableBuilder(
+    column: $table.amount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get plan => $composableBuilder(
+    column: $table.plan,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get phone => $composableBuilder(
+    column: $table.phone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get receipt => $composableBuilder(
+    column: $table.receipt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get message => $composableBuilder(
+    column: $table.message,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PaymentAttemptsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PaymentAttemptsTable> {
+  $$PaymentAttemptsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get checkoutRequestId => $composableBuilder(
+    column: $table.checkoutRequestId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get merchantRequestId => $composableBuilder(
+    column: $table.merchantRequestId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get amount => $composableBuilder(
+    column: $table.amount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get plan => $composableBuilder(
+    column: $table.plan,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get phone => $composableBuilder(
+    column: $table.phone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get receipt => $composableBuilder(
+    column: $table.receipt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get message => $composableBuilder(
+    column: $table.message,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PaymentAttemptsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PaymentAttemptsTable> {
+  $$PaymentAttemptsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get checkoutRequestId => $composableBuilder(
+    column: $table.checkoutRequestId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get merchantRequestId => $composableBuilder(
+    column: $table.merchantRequestId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get amount =>
+      $composableBuilder(column: $table.amount, builder: (column) => column);
+
+  GeneratedColumn<String> get plan =>
+      $composableBuilder(column: $table.plan, builder: (column) => column);
+
+  GeneratedColumn<String> get phone =>
+      $composableBuilder(column: $table.phone, builder: (column) => column);
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<String> get receipt =>
+      $composableBuilder(column: $table.receipt, builder: (column) => column);
+
+  GeneratedColumn<String> get message =>
+      $composableBuilder(column: $table.message, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$PaymentAttemptsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PaymentAttemptsTable,
+          PaymentAttemptRow,
+          $$PaymentAttemptsTableFilterComposer,
+          $$PaymentAttemptsTableOrderingComposer,
+          $$PaymentAttemptsTableAnnotationComposer,
+          $$PaymentAttemptsTableCreateCompanionBuilder,
+          $$PaymentAttemptsTableUpdateCompanionBuilder,
+          (
+            PaymentAttemptRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PaymentAttemptsTable,
+              PaymentAttemptRow
+            >,
+          ),
+          PaymentAttemptRow,
+          PrefetchHooks Function()
+        > {
+  $$PaymentAttemptsTableTableManager(
+    _$AppDatabase db,
+    $PaymentAttemptsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer:
+              () =>
+                  $$PaymentAttemptsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer:
+              () => $$PaymentAttemptsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer:
+              () => $$PaymentAttemptsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String?> checkoutRequestId = const Value.absent(),
+                Value<String?> merchantRequestId = const Value.absent(),
+                Value<int> amount = const Value.absent(),
+                Value<String> plan = const Value.absent(),
+                Value<String> phone = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<String?> receipt = const Value.absent(),
+                Value<String?> message = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> resolvedAt = const Value.absent(),
+              }) => PaymentAttemptsCompanion(
+                id: id,
+                checkoutRequestId: checkoutRequestId,
+                merchantRequestId: merchantRequestId,
+                amount: amount,
+                plan: plan,
+                phone: phone,
+                state: state,
+                receipt: receipt,
+                message: message,
+                createdAt: createdAt,
+                resolvedAt: resolvedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String?> checkoutRequestId = const Value.absent(),
+                Value<String?> merchantRequestId = const Value.absent(),
+                required int amount,
+                required String plan,
+                required String phone,
+                required String state,
+                Value<String?> receipt = const Value.absent(),
+                Value<String?> message = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> resolvedAt = const Value.absent(),
+              }) => PaymentAttemptsCompanion.insert(
+                id: id,
+                checkoutRequestId: checkoutRequestId,
+                merchantRequestId: merchantRequestId,
+                amount: amount,
+                plan: plan,
+                phone: phone,
+                state: state,
+                receipt: receipt,
+                message: message,
+                createdAt: createdAt,
+                resolvedAt: resolvedAt,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable<$PaymentAttemptsTable, PaymentAttemptRow>(
+                            table,
+                          ),
+                          BaseReferences<
+                            _$AppDatabase,
+                            $PaymentAttemptsTable,
+                            PaymentAttemptRow
+                          >(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PaymentAttemptsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PaymentAttemptsTable,
+      PaymentAttemptRow,
+      $$PaymentAttemptsTableFilterComposer,
+      $$PaymentAttemptsTableOrderingComposer,
+      $$PaymentAttemptsTableAnnotationComposer,
+      $$PaymentAttemptsTableCreateCompanionBuilder,
+      $$PaymentAttemptsTableUpdateCompanionBuilder,
+      (
+        PaymentAttemptRow,
+        BaseReferences<_$AppDatabase, $PaymentAttemptsTable, PaymentAttemptRow>,
+      ),
+      PaymentAttemptRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -10854,4 +12574,8 @@ class $AppDatabaseManager {
       $$ExpensesTableTableManager(_db, _db.expenses);
   $$RecurringExpensesTableTableManager get recurringExpenses =>
       $$RecurringExpensesTableTableManager(_db, _db.recurringExpenses);
+  $$SubscriptionsTableTableManager get subscriptions =>
+      $$SubscriptionsTableTableManager(_db, _db.subscriptions);
+  $$PaymentAttemptsTableTableManager get paymentAttempts =>
+      $$PaymentAttemptsTableTableManager(_db, _db.paymentAttempts);
 }

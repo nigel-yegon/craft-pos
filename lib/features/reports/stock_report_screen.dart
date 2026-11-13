@@ -5,11 +5,6 @@ import '../../core/database/app_database.dart';
 import '../../core/providers/product_provider.dart';
 import '../../core/theme/app_theme.dart';
 
-import 'dart:io';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // If using Riverpod for business name
-import '../../core/providers/database_provider.dart'; // To get business name
-import '../../core/utils/pdf_helper.dart'; // To call the export
-
 class StockReportScreen extends StatefulWidget {
   final ProductProvider provider;
   const StockReportScreen({super.key, required this.provider});

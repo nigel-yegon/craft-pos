@@ -154,3 +154,29 @@ class RecurringExpenses extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+@DataClassName('SubscriptionRow')
+class Subscriptions extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get plan => text()();
+  DateTimeColumn get startedAt => dateTime()();
+  DateTimeColumn get expiresAt => dateTime()();
+  BoolColumn get active => boolean().withDefault(const Constant(true))();
+  TextColumn get source => text()();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+@DataClassName('PaymentAttemptRow')
+class PaymentAttempts extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get checkoutRequestId => text().nullable()();
+  TextColumn get merchantRequestId => text().nullable()();
+  IntColumn get amount => integer()();
+  TextColumn get plan => text()();
+  TextColumn get phone => text()();
+  TextColumn get state => text()();
+  TextColumn get receipt => text().nullable()();
+  TextColumn get message => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get resolvedAt => dateTime().nullable()();
+}

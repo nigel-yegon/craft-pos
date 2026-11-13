@@ -8,12 +8,14 @@ import 'app.dart';
 import 'core/database/app_database.dart';
 import 'core/database/seed_data.dart';
 import 'core/providers/database_provider.dart';
+import 'core/services/connectivity_service.dart';
 
 Future<void> _handlePendingRestore() async {
   try {
     final dbFolder = await getApplicationDocumentsDirectory();
     final mainDb = File(p.join(dbFolder.path, 'craft_pos.sqlite'));
-    final stagedFile = File(p.join(dbFolder.path, 'craft_pos_restore_pending.sqlite'));
+    final stagedFile =
+    File(p.join(dbFolder.path, 'craft_pos_restore_pending.sqlite'));
 
     if (await stagedFile.exists()) {
       // 1. Delete the old database
@@ -36,7 +38,8 @@ void main() async {
   // 1. Check for and apply any staged restores BEFORE opening the DB
   await _handlePendingRestore();
 
-  // 2. Initialize DB
+  // 2. Initialize DB (runs migrations — creates subscriptions/payment_attempts
+  //    on upgrade if you bumped schemaVersion in app_database.dart)
   final database = AppDatabase();
 
   // 3. Seed if empty (only if it's a fresh install, won't override a restore)
@@ -52,6 +55,11 @@ void main() async {
       ),
     );
   }
+
+  // 4. Init connectivity service — required by M-Pesa / subscription flow.
+  //    The app remains fully offline-capable; this only tells payment flows
+  //    whether an online attempt is possible.
+  await ConnectivityService.instance.init();
 
   runApp(
     ProviderScope(

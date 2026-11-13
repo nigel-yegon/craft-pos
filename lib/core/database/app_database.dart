@@ -16,6 +16,8 @@ part 'app_database.g.dart';
     HeldOrders,
     Expenses,
     RecurringExpenses,
+    Subscriptions,
+    PaymentAttempts,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -31,7 +33,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -48,6 +50,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 7) {
         await m.addColumn(expenses, expenses.paidAmountMinor);
         await m.addColumn(recurringExpenses, recurringExpenses.nextDueDate);
+      }
+      if (from < 8) {
+        await m.createTable(subscriptions);
+        await m.createTable(paymentAttempts);
       }
     },
     beforeOpen: (details) async {
