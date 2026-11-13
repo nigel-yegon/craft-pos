@@ -145,6 +145,37 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return 'Good evening';
   }
 
+  // ⭐ Logout: confirm → sign out → route to login.
+  //    AuthProvider.logout() is synchronous (void), so NO await.
+  Future<void> _confirmLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Log out?'),
+        content:
+        const Text('You will need to sign in again to access your shop.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    widget.authProvider.logout(); // ✅ synchronous — no await
+    if (!context.mounted) return;
+
+    context.go('/login'); // ✅ statement, not a value
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -204,15 +235,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   shape: BoxShape.circle,
                                   color: Colors.white.withValues(alpha: 0.1),
                                   border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.2),
+                                    color:
+                                    Colors.white.withValues(alpha: 0.2),
                                     width: 0.5,
                                   ),
                                 ),
                                 child: StreamBuilder<BusinessesData?>(
-                                  stream: widget.businessProvider.businessStream,
+                                  stream:
+                                  widget.businessProvider.businessStream,
                                   builder: (context, snapshot) {
-                                    final imagePath = snapshot.data?.imagePath;
-                                    if (imagePath != null && File(imagePath).existsSync()) {
+                                    final imagePath =
+                                        snapshot.data?.imagePath;
+                                    if (imagePath != null &&
+                                        File(imagePath).existsSync()) {
                                       return ClipOval(
                                         child: Image.file(
                                           File(imagePath),
@@ -238,12 +273,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   _greeting(),
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.white.withValues(alpha: 0.6),
+                                    color:
+                                    Colors.white.withValues(alpha: 0.6),
                                     fontWeight: FontWeight.w400,
                                   ),
                                 ),
                                 StreamBuilder<BusinessesData?>(
-                                  stream: widget.businessProvider.businessStream,
+                                  stream:
+                                  widget.businessProvider.businessStream,
                                   builder: (context, snapshot) {
                                     return Text(
                                       snapshot.data?.name ?? 'My Shop',
@@ -259,13 +296,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               ],
                             ),
                           ),
-                          _heroIconButton(
-                            icon: Icons.search,
-                            onTap: () => _openUniversalSearch(context),
-                          ),
-                          const SizedBox(width: 8),
 
-                          // Notification Icon with Badge
+                          // ⭐ Notification icon with badge
+                          //    (swapped with search — now in the top row)
                           GestureDetector(
                             onTap: () {
                               setState(() => _unreadNotifications = 0);
@@ -279,9 +312,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   height: 38,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: Colors.white.withValues(alpha: 0.06),
+                                    color:
+                                    Colors.white.withValues(alpha: 0.06),
                                     border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.15),
+                                      color: Colors.white
+                                          .withValues(alpha: 0.15),
                                       width: 0.5,
                                     ),
                                   ),
@@ -320,6 +355,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               ],
                             ),
                           ),
+                          const SizedBox(width: 8),
+
+                          // ⭐ Logout icon
+                          GestureDetector(
+                            onTap: () => _confirmLogout(context),
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withValues(alpha: 0.06),
+                                border: Border.all(
+                                  color:
+                                  Colors.white.withValues(alpha: 0.15),
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: const Icon(Icons.logout,
+                                  color: Colors.white, size: 18),
+                            ),
+                          ),
                         ],
                       ),
 
@@ -347,7 +403,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                           ),
                           Text(
-                            _currencyFormatter.format(_todaySales / 100).replaceFirst('KSh ', ''),
+                            _currencyFormatter
+                                .format(_todaySales / 100)
+                                .replaceFirst('KSh ', ''),
                             style: const TextStyle(
                               fontSize: 34,
                               color: Colors.white,
@@ -370,29 +428,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             onTap: () => context.push('/reports/stock'),
                           ),
                           const SizedBox(width: 10),
+
+                          // ⭐ Held Orders → /sales with flag so SalesScreen
+                          //    is on the stack when a resume pops back.
                           _heroPill(
                             label: 'Held Orders',
                             icon: Icons.pause_circle_outline,
                             isPrimary: true,
-                            onTap: () => context.push('/sales/held'),
+                            onTap: () => context.go(
+                              '/sales',
+                              extra: {'openHeldOrders': true},
+                            ),
                           ),
                           const SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: () => context.push('/settings'),
-                            child: Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withValues(alpha: 0.06),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: const Icon(Icons.more_horiz,
-                                  color: Colors.white, size: 18),
-                            ),
+
+                          // ⭐ Search icon
+                          //    (swapped with notifications — now in pills row)
+                          _heroIconButton(
+                            icon: Icons.search,
+                            onTap: () => _openUniversalSearch(context),
                           ),
                         ],
                       ),
@@ -438,7 +492,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           crossAxisSpacing: 10,
                           childAspectRatio: 0.9,
                           children: [
-                            // ⭐ Sale is now highlighted (Dark Green Background)
                             _categoryItem(
                               icon: Icons.shopping_cart_outlined,
                               label: 'Sale',
@@ -517,7 +570,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           Expanded(
                             child: _metricCard(
                               title: 'Today\'s Sales',
-                              value: _currencyFormatter.format(_todaySales / 100),
+                              value:
+                              _currencyFormatter.format(_todaySales / 100),
                               icon: Icons.shopping_bag_outlined,
                               bgColor: AppTheme.heroGreen,
                               onTap: () => context.go('/sales'),
@@ -527,7 +581,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           Expanded(
                             child: _metricCard(
                               title: 'Today\'s Profit',
-                              value: _currencyFormatter.format(_todayProfit / 100),
+                              value: _currencyFormatter
+                                  .format(_todayProfit / 100),
                               icon: Icons.trending_up,
                               bgColor: AppTheme.midGreen,
                               onTap: () => context.go('/reports'),
@@ -551,7 +606,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           Expanded(
                             child: _metricCard(
                               title: 'Expenses',
-                              value: _currencyFormatter.format(_todayExpenses / 100),
+                              value: _currencyFormatter
+                                  .format(_todayExpenses / 100),
                               icon: Icons.payments_outlined,
                               bgColor: AppTheme.midnightViolet,
                               onTap: () => context.push('/settings'),
@@ -572,10 +628,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppTheme.burntOrange.withValues(alpha: 0.05),
+                          color:
+                          AppTheme.burntOrange.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(
-                            color: AppTheme.burntOrange.withValues(alpha: 0.35),
+                            color:
+                            AppTheme.burntOrange.withValues(alpha: 0.35),
                             width: 0.5,
                           ),
                         ),
@@ -595,7 +653,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               ),
                             ),
                             Icon(Icons.chevron_right,
-                                color: AppTheme.burntOrange.withValues(alpha: 0.7),
+                                color: AppTheme.burntOrange
+                                    .withValues(alpha: 0.7),
                                 size: 18),
                           ],
                         ),
@@ -702,7 +761,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // ⭐ Added isHighlighted parameter
   Widget _categoryItem({
     required IconData icon,
     required String label,
@@ -717,7 +775,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              // If highlighted, use dark forest green; otherwise use soft mint
               color: isHighlighted ? AppTheme.heroGreen : AppTheme.softMint,
               shape: BoxShape.circle,
               boxShadow: [
@@ -730,7 +787,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             child: Icon(
               icon,
-              // If highlighted, icon is white; otherwise dark green
               color: isHighlighted ? Colors.white : AppTheme.heroGreen,
               size: 20,
             ),
@@ -740,7 +796,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             label,
             style: TextStyle(
               fontSize: 10,
-              // If highlighted, text is dark green; otherwise black
               color: isHighlighted ? AppTheme.heroGreen : AppTheme.inkBlack,
               fontWeight: isHighlighted ? FontWeight.w700 : FontWeight.w500,
             ),
@@ -870,8 +925,7 @@ class _UniversalSearchDelegate extends SearchDelegate {
       return _emptyState(
         icon: Icons.search,
         title: 'Search everything',
-        subtitle:
-        'Find products, transactions, expenses, or held orders.',
+        subtitle: 'Find products, transactions, expenses, or held orders.',
       );
     }
     return FutureBuilder<List<_SearchResult>>(
@@ -932,7 +986,8 @@ class _UniversalSearchDelegate extends SearchDelegate {
                   ),
                 ),
                 trailing: Icon(Icons.chevron_right,
-                    color: AppTheme.inkBlack.withValues(alpha: 0.3), size: 18),
+                    color: AppTheme.inkBlack.withValues(alpha: 0.3),
+                    size: 18),
                 onTap: () {
                   close(context, null);
                   r.onTap(context);

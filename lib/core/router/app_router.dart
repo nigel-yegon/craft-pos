@@ -18,18 +18,17 @@ import '../../features/products/products_screen.dart';
 import '../../features/reports/reports_screen.dart';
 import '../../features/sales/held_orders_screen.dart';
 import '../../features/sales/sales_screen.dart';
-import '../../features/settings/aob_screen.dart';           // ⭐ Import AOB
-import '../../features/settings/backup_screen.dart';        // ⭐ Import Backup
+import '../../features/settings/aob_screen.dart';
+import '../../features/settings/backup_screen.dart';
 import '../../features/settings/expenses_screen.dart';
-import '../../features/settings/notifications_screen.dart'; // ⭐ Import Notifications
+import '../../features/settings/notifications_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/settings/subscription_screen.dart';
 import '../../shared/widgets/app_shell.dart';
-import '../../features/settings/backup_screen.dart';
 
 Future<GoRouter> createAppRouter(
     AppDatabase db, {
-      String initialLocation = '/dashboard', // Default to dashboard after splash
+      String initialLocation = '/dashboard',
     }) async {
   final businesses = await (db.select(db.businesses)).get();
   final businessId =
@@ -61,7 +60,6 @@ Future<GoRouter> createAppRouter(
       return null;
     },
     routes: [
-      // Splash is handled in app.dart, but we keep it here as a fallback if needed
       GoRoute(
         path: '/login',
         builder: (context, state) => LoginScreen(authProvider: authProvider),
@@ -87,7 +85,7 @@ Future<GoRouter> createAppRouter(
                 ProfileScreen(provider: businessProvider),
           ),
 
-          // ⭐ Updated Settings Routes with all sub-menus
+          // ⭐ Settings Routes — duplicate 'backup' route removed
           GoRoute(
             path: '/settings',
             builder: (context, state) => const SettingsScreen(),
@@ -101,8 +99,6 @@ Future<GoRouter> createAppRouter(
                 path: 'subscription',
                 builder: (context, state) => const SubscriptionScreen(),
               ),
-              // ⭐ Added Business Route
-              // Inside createAppRouter
               GoRoute(
                 path: 'aob',
                 builder: (context, state) => AobScreen(
@@ -110,16 +106,10 @@ Future<GoRouter> createAppRouter(
                   authProvider: authProvider,
                 ),
               ),
-              // ⭐ Added Notifications Route
-              GoRoute(
-                path: 'backup',
-                builder: (context, state) => const BackupScreen(),
-              ),
               GoRoute(
                 path: 'notifications',
                 builder: (context, state) => const NotificationsScreen(),
               ),
-              // ⭐ Added Backup & Privacy Route
               GoRoute(
                 path: 'backup',
                 builder: (context, state) => const BackupScreen(),

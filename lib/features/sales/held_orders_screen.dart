@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart'; // ⭐ added: context.pop / context.go
 import 'package:intl/intl.dart';
 import '../../core/database/app_database.dart';
 import '../../core/providers/sales_provider.dart';
@@ -143,8 +144,7 @@ class _HeldOrdersScreenState extends State<HeldOrdersScreen> {
                     final qtyLabel = qty % 1 == 0
                         ? qty.toStringAsFixed(0)
                         : qty.toStringAsFixed(2);
-                    final lineTotal =
-                        item.lineTotalMinor / 100.0;
+                    final lineTotal = item.lineTotalMinor / 100.0;
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -214,6 +214,10 @@ class _HeldOrdersScreenState extends State<HeldOrdersScreen> {
     }
   }
 
+  // ⭐ Resume: load cart, delete the held order, then pop back with the cart.
+  //    Uses go_router's context.pop so it works with the router-based
+  //    navigation (/sales → held). No provider mutation is performed here,
+  //    so SalesProvider doesn't need a restoreHeldOrder() method.
   Future<void> _resume(BuildContext context, HeldOrder order) async {
     final cart = await widget.provider.loadHeldOrder(order);
     if (!context.mounted) return;
@@ -222,6 +226,15 @@ class _HeldOrdersScreenState extends State<HeldOrdersScreen> {
     await widget.provider.deleteHeldOrder(order.id);
     if (!context.mounted) return;
 
-    Navigator.pop(context, cart);
+    // Pop back to the caller (usually /sales) with the cart as the result.
+    if (context.canPop()) {
+      context.pop(cart);
+    } else {
+      // Fallback: if this screen was opened as the root (e.g. deep link),
+      // go to the sales screen. The cart will be empty there unless the
+      // caller handles the pop result; add SalesProvider.restoreHeldOrder()
+      // if you need the cart to survive this path.
+      context.go('/sales');
+    }
   }
 }

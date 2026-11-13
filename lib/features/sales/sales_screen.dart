@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/database/app_database.dart';
 import '../../core/providers/product_provider.dart';
 import '../../core/providers/sales_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/product_image.dart';
-import 'held_orders_screen.dart';
 
 class SalesScreen extends StatefulWidget {
   final ProductProvider productProvider;
   final SalesProvider salesProvider;
 
+  /// ⭐ When true, the held-orders screen opens immediately after mount.
+  /// Used by the dashboard "Held Orders" shortcut so the resume cart
+  /// always has a live SalesScreen to pop back into.
+  final bool autoOpenHeldOrders;
+
   const SalesScreen({
     super.key,
     required this.productProvider,
     required this.salesProvider,
+    this.autoOpenHeldOrders = false,
   });
 
   @override
@@ -23,7 +29,7 @@ class SalesScreen extends StatefulWidget {
 class _SalesScreenState extends State<SalesScreen> {
   final List<CartItem> _cart = [];
   String _searchQuery = '';
-  bool _cartExpanded = false;   // ⭐ starts closed
+  bool _cartExpanded = false;
 
   int get _cartTotalMinor => _cart.fold(
     0,
@@ -34,6 +40,17 @@ class _SalesScreenState extends State<SalesScreen> {
   int get _cartItemCount =>
       _cart.fold(0, (sum, item) => sum + (item.quantityMilli ~/ 1000));
 
+  @override
+  void initState() {
+    super.initState();
+    // ⭐ Auto-open held orders if navigated with the flag (e.g. from dashboard).
+    if (widget.autoOpenHeldOrders) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openHeldOrders();
+      });
+    }
+  }
+
   void _addToCart(Product product) {
     setState(() {
       final existing = _cart.indexWhere((i) => i.product.id == product.id);
@@ -43,7 +60,6 @@ class _SalesScreenState extends State<SalesScreen> {
         _cart.add(CartItem(product: product));
       }
     });
-    // NOTE: no auto-expand — the pill reflects the new count instead.
   }
 
   void _removeFromCart(int index) {
@@ -222,18 +238,20 @@ class _SalesScreenState extends State<SalesScreen> {
     );
   }
 
+  /// ⭐ Opens the held-orders screen and applies a resumed cart.
+  /// Requires SalesProvider to have no restoreHeldOrder method — the cart
+  /// travels entirely through the go_router pop result.
   Future<void> _openHeldOrders() async {
-    final result = await Navigator.push<List<CartItem>>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => HeldOrdersScreen(provider: widget.salesProvider),
-      ),
-    );
-    if (result != null && result.isNotEmpty && mounted) {
+    final restored = await context.push<List<CartItem>>('/sales/held');
+
+    if (!mounted) return;
+
+    if (restored != null && restored.isNotEmpty) {
       setState(() {
-        _cart.clear();
-        _cart.addAll(result);
-        _cartExpanded = false;   // ⭐ stays closed
+        _cart
+          ..clear()
+          ..addAll(restored);
+        _cartExpanded = false;
       });
     }
   }
@@ -248,7 +266,9 @@ class _SalesScreenState extends State<SalesScreen> {
         title: const Text('New Sale'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+          // ⭐ SalesScreen is always reached via context.go('/sales'),
+          // so canPop() is false. Go back to dashboard explicitly.
+          onPressed: () => context.go('/dashboard'),
         ),
         actions: [
           IconButton(
@@ -260,7 +280,6 @@ class _SalesScreenState extends State<SalesScreen> {
       ),
       body: Stack(
         children: [
-          // Main content (grid only — no cart unless expanded)
           Positioned.fill(
             child: Column(
               children: [
@@ -295,8 +314,6 @@ class _SalesScreenState extends State<SalesScreen> {
               ],
             ),
           ),
-
-          // Floating cart pill — always visible when collapsed
           if (!_cartExpanded)
             Positioned(
               bottom: 20,
@@ -423,7 +440,7 @@ class _SalesScreenState extends State<SalesScreen> {
           itemBuilder: (context, index) {
             final p = prods[index];
             return GestureDetector(
-              onTap: () => _addToCart(p),   // ⭐ no auto-expand
+              onTap: () => _addToCart(p),
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
