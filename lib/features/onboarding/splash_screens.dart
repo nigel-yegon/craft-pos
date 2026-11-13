@@ -96,7 +96,7 @@ class _SplashScreensState extends State<SplashScreens>
 
               // ═══ BRAND TEXT ═══
               const Text(
-                'Craft POS',
+                'Craft Business',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,

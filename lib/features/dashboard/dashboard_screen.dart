@@ -35,7 +35,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _lowStockCount = 0;
   int _todayExpenses = 0;
 
-  // ⭐ Mock unread notification count (Replace with real DB stream later)
+  // Mock unread notification count
   int _unreadNotifications = 3;
 
   final _currencyFormatter = NumberFormat.currency(
@@ -265,10 +265,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                           const SizedBox(width: 8),
 
-                          // ⭐ Notification Icon with Badge & Link
+                          // Notification Icon with Badge
                           GestureDetector(
                             onTap: () {
-                              // Reset count visually when opened
                               setState(() => _unreadNotifications = 0);
                               context.push('/settings/notifications');
                             },
@@ -439,9 +438,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           crossAxisSpacing: 10,
                           childAspectRatio: 0.9,
                           children: [
+                            // ⭐ Sale is now highlighted (Dark Green Background)
                             _categoryItem(
                               icon: Icons.shopping_cart_outlined,
                               label: 'Sale',
+                              isHighlighted: true,
                               onTap: () => context.go('/sales'),
                             ),
                             _categoryItem(
@@ -701,9 +702,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  // ⭐ Added isHighlighted parameter
   Widget _categoryItem({
     required IconData icon,
     required String label,
+    bool isHighlighted = false,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -714,7 +717,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: AppTheme.softMint,
+              // If highlighted, use dark forest green; otherwise use soft mint
+              color: isHighlighted ? AppTheme.heroGreen : AppTheme.softMint,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
@@ -724,15 +728,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ],
             ),
-            child: Icon(icon, color: AppTheme.heroGreen, size: 20),
+            child: Icon(
+              icon,
+              // If highlighted, icon is white; otherwise dark green
+              color: isHighlighted ? Colors.white : AppTheme.heroGreen,
+              size: 20,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
-              color: AppTheme.inkBlack,
-              fontWeight: FontWeight.w500,
+              // If highlighted, text is dark green; otherwise black
+              color: isHighlighted ? AppTheme.heroGreen : AppTheme.inkBlack,
+              fontWeight: isHighlighted ? FontWeight.w700 : FontWeight.w500,
             ),
             textAlign: TextAlign.center,
           ),
