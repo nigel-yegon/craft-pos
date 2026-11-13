@@ -156,12 +156,20 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf,
-                color: AppTheme.heroGreen),
-            tooltip: 'Export PDF',
+          // ⭐ Modern PDF Export Button
+          TextButton.icon(
             onPressed: _isLoading ? null : _exportPdf,
+            icon: const Icon(Icons.picture_as_pdf, color: AppTheme.heroGreen, size: 20),
+            label: const Text(
+              'Export PDF',
+              style: TextStyle(
+                color: AppTheme.heroGreen,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
           ),
+          const SizedBox(width: 8),
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -204,18 +212,16 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                   _buildMetricCard(
                     'Sales',
                     _formatKsh(_summary['sales'] ?? 0),
-                    AppTheme.heroGreen, // Dark Forest
+                    const [AppTheme.heroGreen, AppTheme.midGreen],
                     const CurrencyIcon(color: Colors.white, size: 20),
-                    isDark: true,
                   ),
                   const SizedBox(width: 12),
                   _buildMetricCard(
                     'Profit',
                     _formatKsh(_summary['profit'] ?? 0),
-                    AppTheme.midGreen, // Mid Green
+                    const [AppTheme.midGreen, AppTheme.heroGreen],
                     const Icon(Icons.trending_up,
                         size: 20, color: Colors.white),
-                    isDark: true,
                   ),
                 ],
               ),
@@ -225,19 +231,17 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                   _buildMetricCard(
                     'Stock Value',
                     _formatKsh(_summary['stockValue'] ?? 0),
-                    AppTheme.forestDeep, // Darker Green
+                    const [AppTheme.forestDeep, AppTheme.midGreen],
                     const Icon(Icons.inventory,
                         size: 20, color: Colors.white),
-                    isDark: true,
                   ),
                   const SizedBox(width: 12),
                   _buildMetricCard(
                     'Transactions',
                     '${_salesInRange.length}',
-                    AppTheme.midnightViolet, // Deep Violet
+                    const [AppTheme.midnightViolet, Color(0xFF2D1823)],
                     const Icon(Icons.receipt_long,
                         size: 20, color: Colors.white),
-                    isDark: true,
                   ),
                 ],
               ),
@@ -349,7 +353,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     );
   }
 
-  // ─── Money Position Card (Dark Theme) ───
+  // ─── Money Position Card (Gradient) ───
   Widget _buildMoneyPositionCard() {
     final sales = _summary['sales'] ?? 0;
     final net = sales - _expensePaid;
@@ -357,7 +361,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.heroGreen,
+        // ⭐ Smooth Gradient
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppTheme.midGreen, AppTheme.heroGreen],
+        ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -454,7 +463,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     );
   }
 
-  // ─── Transaction Tile (Clean White) ───
+  // ─── Transaction Tile ───
   Widget _buildTransactionTile(Sale sale) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -587,19 +596,23 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     );
   }
 
-  // ─── Metric Card (Dark Themed) ───
+  // ─── Metric Card (Gradient) ───
   Widget _buildMetricCard(
       String title,
       String value,
-      Color bgColor,
-      Widget iconWidget, {
-        bool isDark = false,
-      }) {
+      List<Color> gradientColors,
+      Widget iconWidget,
+      ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: bgColor,
+          // ⭐ Smooth Gradient
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: gradientColors,
+          ),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
@@ -710,7 +723,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
             barRods: [
               BarChartRodData(
                 toY: total,
-                color: AppTheme.brightGreen, // Bright green bars
+                color: AppTheme.brightGreen,
                 width: 16,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(6),

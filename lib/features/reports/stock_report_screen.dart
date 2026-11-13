@@ -5,6 +5,11 @@ import '../../core/database/app_database.dart';
 import '../../core/providers/product_provider.dart';
 import '../../core/theme/app_theme.dart';
 
+import 'dart:io';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // If using Riverpod for business name
+import '../../core/providers/database_provider.dart'; // To get business name
+import '../../core/utils/pdf_helper.dart'; // To call the export
+
 class StockReportScreen extends StatefulWidget {
   final ProductProvider provider;
   const StockReportScreen({super.key, required this.provider});
@@ -18,6 +23,10 @@ class _StockReportScreenState extends State<StockReportScreen>
   late TabController _tabController;
   String _search = '';
 
+  // ⭐ Filter State
+  String? _filterType; // e.g., 'purchase', 'sale', 'adjustment'
+  String _filterPeriod = 'all'; // 'today', 'week', 'all'
+
   @override
   void initState() {
     super.initState();
@@ -28,6 +37,147 @@ class _StockReportScreenState extends State<StockReportScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _exportPdf() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Stock Report PDF export coming soon.'),
+        backgroundColor: AppTheme.heroGreen,
+      ),
+    );
+  }
+
+  // ⭐ Open Filter Bottom Sheet
+  void _showFilterSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Filter Ledger',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w700),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setModalState(() {
+                            _filterType = null;
+                            _filterPeriod = 'all';
+                          });
+                          setState(() {});
+                        },
+                        child: const Text('Reset',
+                            style: TextStyle(color: AppTheme.burntOrange)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Type Filter
+                  const Text('Transaction Type',
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      _buildFilterChip('All Types', null, setModalState),
+                      _buildFilterChip('Purchases', 'purchase', setModalState),
+                      _buildFilterChip('Sales', 'sale', setModalState),
+                      _buildFilterChip(
+                          'Adjustments', 'adjustment', setModalState),
+                      _buildFilterChip('Damage', 'damage', setModalState),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Period Filter
+                  const Text('Time Period',
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      _buildPeriodChip('All Time', 'all', setModalState),
+                      _buildPeriodChip('Today', 'today', setModalState),
+                      _buildPeriodChip('This Week', 'week', setModalState),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Apply Filters'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildFilterChip(
+      String label, String? value, StateSetter setModalState) {
+    final isSelected = _filterType == value;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setModalState(() {
+          _filterType = selected ? value : null;
+        });
+        setState(() {});
+      },
+      selectedColor: AppTheme.heroGreen.withValues(alpha: 0.1),
+      checkmarkColor: AppTheme.heroGreen,
+      labelStyle: TextStyle(
+        color: isSelected ? AppTheme.heroGreen : AppTheme.inkBlack,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+      ),
+    );
+  }
+
+  Widget _buildPeriodChip(
+      String label, String value, StateSetter setModalState) {
+    final isSelected = _filterPeriod == value;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setModalState(() {
+          _filterPeriod = value;
+        });
+        setState(() {});
+      },
+      selectedColor: AppTheme.heroGreen.withValues(alpha: 0.1),
+      checkmarkColor: AppTheme.heroGreen,
+      labelStyle: TextStyle(
+        color: isSelected ? AppTheme.heroGreen : AppTheme.inkBlack,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+      ),
+    );
   }
 
   @override
@@ -42,6 +192,22 @@ class _StockReportScreenState extends State<StockReportScreen>
           icon: const Icon(Icons.arrow_back, color: AppTheme.inkBlack),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          TextButton.icon(
+            onPressed: _exportPdf,
+            icon: const Icon(Icons.picture_as_pdf,
+                color: AppTheme.heroGreen, size: 20),
+            label: const Text(
+              'Export PDF',
+              style: TextStyle(
+                color: AppTheme.heroGreen,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppTheme.brightGreen,
@@ -64,7 +230,7 @@ class _StockReportScreenState extends State<StockReportScreen>
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // TAB 1: SUMMARY — per-product totals
+  // TAB 1: SUMMARY
   // ═══════════════════════════════════════════════════════════════════
   Widget _buildSummaryTab() {
     return FutureBuilder<List<Map<String, dynamic>>>(
@@ -100,18 +266,29 @@ class _StockReportScreenState extends State<StockReportScreen>
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppTheme.heroGreen,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppTheme.midGreen, AppTheme.heroGreen],
+                  ),
                   borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.heroGreen.withValues(alpha: 0.2),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _totalsItem('STOCK IN',
-                        (grandIn / 1000).toStringAsFixed(0)),
-                    _totalsItem('STOCK OUT',
-                        (grandOut / 1000).toStringAsFixed(0)),
-                    _totalsItem('BALANCE',
-                        (grandBalance / 1000).toStringAsFixed(0)),
+                    _totalsItem(
+                        'STOCK IN', (grandIn / 1000).toStringAsFixed(0)),
+                    _totalsItem(
+                        'STOCK OUT', (grandOut / 1000).toStringAsFixed(0)),
+                    _totalsItem(
+                        'BALANCE', (grandBalance / 1000).toStringAsFixed(0)),
                     _totalsItem(
                         'VALUE', 'KSh ${grandValue.toStringAsFixed(0)}'),
                   ],
@@ -255,21 +432,78 @@ class _StockReportScreenState extends State<StockReportScreen>
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // TAB 2: LEDGER — every movement
+  // TAB 2: LEDGER
   // ═══════════════════════════════════════════════════════════════════
   Widget _buildLedgerTab() {
     return Column(
       children: [
+        // ⭐ Search & Filter Bar
         Padding(
-          padding: const EdgeInsets.all(16),
-          child: TextField(
-            decoration: const InputDecoration(
-              hintText: 'Search by product, note, or type...',
-              prefixIcon: Icon(Icons.search),
-            ),
-            onChanged: (v) => setState(() => _search = v.toLowerCase()),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: const InputDecoration(
+                    hintText: 'Search by product, note, or type...',
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onChanged: (v) => setState(() => _search = v.toLowerCase()),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _showFilterSheet,
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.softMint,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.tune, color: AppTheme.heroGreen),
+                ),
+              ),
+            ],
           ),
         ),
+
+        // Active filter indicator
+        if (_filterType != null || _filterPeriod != 'all')
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                const Icon(Icons.filter_alt, size: 14, color: AppTheme.heroGreen),
+                const SizedBox(width: 6),
+                Text(
+                  'Filters active',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.heroGreen,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _filterType = null;
+                      _filterPeriod = 'all';
+                    });
+                  },
+                  child: const Text(
+                    'Clear',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.burntOrange,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
         Expanded(
           child: StreamBuilder<List<StockMovement>>(
             stream: widget.provider.stockLedgerStream,
@@ -291,17 +525,35 @@ class _StockReportScreenState extends State<StockReportScreen>
                   final names = nameSnapshot.data ?? {};
 
                   final filtered = movements.where((m) {
+                    // 1. Text Search Filter
                     final name = (names[m.productId] ?? '').toLowerCase();
                     final note = (m.note ?? '').toLowerCase();
                     final type = m.type.toLowerCase();
-                    return name.contains(_search) ||
+                    final matchesSearch = name.contains(_search) ||
                         note.contains(_search) ||
                         type.contains(_search);
+
+                    // 2. Type Filter
+                    final matchesType = _filterType == null || m.type == _filterType;
+
+                    // 3. Period Filter
+                    bool matchesPeriod = true;
+                    final now = DateTime.now();
+                    final todayStart = DateTime(now.year, now.month, now.day);
+
+                    if (_filterPeriod == 'today') {
+                      matchesPeriod = m.createdAt.isAfter(todayStart);
+                    } else if (_filterPeriod == 'week') {
+                      final weekStart = todayStart.subtract(const Duration(days: 7));
+                      matchesPeriod = m.createdAt.isAfter(weekStart);
+                    }
+
+                    return matchesSearch && matchesType && matchesPeriod;
                   }).toList();
 
                   if (filtered.isEmpty) {
                     return const Center(
-                      child: Text('No movements match your search.',
+                      child: Text('No movements match your filters.',
                           style: TextStyle(color: AppTheme.onLightMuted)),
                     );
                   }
