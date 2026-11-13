@@ -1,4 +1,3 @@
-# Dart native assets support
 name: craft_pos
 description: "A new Flutter project."
 publish_to: 'none'
@@ -45,10 +44,10 @@ dependencies:
   pdf: ^3.10.8
   printing: ^5.13.1
 
-  # M-Pesa / Appwrite (daraja)
-  daraja: ^0.2.0
+  # Networking (for M-Pesa backend API)
+  http: ^1.2.0
 
-  # Icon generation (used at build-time, but kept as a dep per your setup)
+  # Icon generation
   flutter_launcher_icons: ^0.14.1
 
 # ─────────────────────────────────────────────────────────────────────
@@ -61,21 +60,6 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   drift_dev: ^2.35.3
   build_runner: ^2.17.1
-
-# ─────────────────────────────────────────────────────────────────────
-# DEPENDENCY OVERRIDES
-#
-# These force device_info_plus/win32 to the versions that share_plus 13.x
-# needs, which simultaneously satisfies appwrite's loose constraint.
-#
-# ⚠️ RISK: if appwrite internally calls APIs that only exist in
-#    device_info_plus 11.x, compile-time or runtime failures may occur.
-#    If that happens, fall back to removing `daraja` and implementing
-#    STK Push + Appwrite Realtime directly (see notes at bottom of file).
-# ─────────────────────────────────────────────────────────────────────
-dependency_overrides:
-  device_info_plus: ^13.0.0
-  win32: ^6.0.0
 
 # ─────────────────────────────────────────────────────────────────────
 # FLUTTER APP CONFIGURATION

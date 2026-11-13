@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:craft_pos/core/models/subscription_plan.dart';
 import 'package:craft_pos/core/providers/database_provider.dart';
 import 'package:craft_pos/core/providers/mpesa_provider.dart';
 import 'package:craft_pos/core/providers/subscription_provider.dart';
 import 'package:craft_pos/core/services/mpesa/mpesa_models.dart';
 import 'package:craft_pos/core/services/subscription_service.dart';
 import 'package:craft_pos/core/theme/app_theme.dart';
-import 'package:craft_pos/core/models/subscription_plan.dart';
 
 class MpesaPaymentSheet extends ConsumerStatefulWidget {
   final SubscriptionPlan plan;
@@ -30,7 +30,10 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
   }
 
   Future<void> _startPayment() async {
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _status = PaymentStatus.idle;
+    });
 
     final mpesa = ref.read(mpesaServiceProvider);
     final db = ref.read(databaseProvider);
@@ -39,8 +42,9 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
     final stream = mpesa.pay(
       phone: _phoneController.text.trim(),
       amount: widget.plan.amountKes,
-      accountRef: 'SUB-${widget.plan.id.toUpperCase()}',
-      description: widget.plan.title,
+      plan: widget.plan.id, // 👈 REQUIRED: Added for the new backend service
+      accountRef: 'SUB-${widget.plan.id.toUpperCase()}', // Optional now, kept for API symmetry
+      description: widget.plan.title,                   // Optional now
     );
 
     await for (final s in stream) {
@@ -115,8 +119,7 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
               const SizedBox(width: 8),
               const Text(
                 'Pay via M-Pesa',
-                style:
-                TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
               const Spacer(),
               TextButton(
@@ -131,8 +134,7 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
           else ...[
             Text(
               '${widget.plan.title} • KSh ${widget.plan.amountKes}',
-              style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -146,6 +148,8 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
               ),
             ),
             const SizedBox(height: 20),
+
+            // Status Messages
             if (_status.state == PaymentState.initiating)
               _statusRow(Icons.hourglass_top, AppTheme.heroGreen,
                   'Sending request to M-Pesa…'),
@@ -161,6 +165,7 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
             if (_status.state == PaymentState.success)
               _statusRow(Icons.check_circle, AppTheme.heroGreen,
                   'Payment successful!'),
+
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -209,6 +214,7 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(width: 8),

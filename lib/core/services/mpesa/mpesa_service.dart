@@ -1,29 +1,20 @@
-import 'dart:async';
-import '../connectivity_service.dart';
-import 'mpesa_config.dart';
-import 'mpesa_models.dart';
-import 'mpesa_query.dart';
-import 'mpesa_stk_push.dart';
+// lib/core/services/mpesa/mpesa_service.dart
 
-/// High-level M-Pesa service.
-///
-/// OFFLINE BEHAVIOR:
-/// - If offline, `pay()` immediately returns a `failed` status with
-///   message "You are offline. M-Pesa requires internet."
-/// - No network call is made while offline.
+import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:craft_pos/core/services/connectivity_service.dart';
+import 'package:craft_pos/core/services/mpesa/mpesa_config.dart';
+import 'package:craft_pos/core/services/mpesa/mpesa_models.dart';
+
 class MpesaService {
   final MpesaConfig config;
-  final ConnectivityService _connectivity;
-  late final MpesaStkPush _stk;
-  late final MpesaQuery _query;
+  final ConnectivityService connectivity;
+  final http.Client _http;
 
-  MpesaService(this.config, this._connectivity) {
-    _stk = MpesaStkPush(config);
-    _query = MpesaQuery(config, _stk.auth);
-  }
+  MpesaService(this.config, this.connectivity, {http.Client? client})
+      : _http = client ?? http.Client();
 
-  /// Normalize Kenyan phone to 2547XXXXXXXX.
-  /// Accepts: 0712..., 712..., +254712..., 254712...
   static String normalizePhone(String input) {
     var p = input.replaceAll(RegExp(r'\s+'), '');
     if (p.startsWith('+')) p = p.substring(1);
@@ -34,17 +25,14 @@ class MpesaService {
     return p;
   }
 
-  /// Initiate STK Push and then poll status until success/fail/timeout.
-  ///
-  /// Emits progressive states so the UI can show "check your phone" etc.
   Stream<PaymentStatus> pay({
     required String phone,
     required int amount,
     required String accountRef,
     required String description,
+    required String plan,
   }) async* {
-    // 1. Offline gate
-    if (!_connectivity.isOnline) {
+    if (!connectivity.isOnline) {
       yield const PaymentStatus(
         state: PaymentState.failed,
         message: 'You are offline. M-Pesa requires an internet connection.',
@@ -63,28 +51,33 @@ class MpesaService {
 
     yield const PaymentStatus(state: PaymentState.initiating);
 
-    StkPushResult push;
+    StkPushResponse push;
     try {
-      push = await _stk.initiate(
-        phone: normalized,
-        amount: amount,
-        accountRef: accountRef,
-        description: description,
-      );
+      final res = await _http
+          .post(
+        config.stkPushUri(),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'phone': normalized,
+          'amount': amount,
+          'plan': plan,
+        }),
+      )
+          .timeout(const Duration(seconds: 30));
+
+      if (res.statusCode != 200) {
+        yield PaymentStatus(
+          state: PaymentState.failed,
+          message: 'M-Pesa request failed (${res.statusCode}). ${res.body}',
+        );
+        return;
+      }
+
+      push = StkPushResponse.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
     } catch (e) {
       yield PaymentStatus(
         state: PaymentState.failed,
-        message: 'Could not reach M-Pesa: $e',
-      );
-      return;
-    }
-
-    if (push.responseCode != '0') {
-      yield PaymentStatus(
-        state: PaymentState.failed,
-        message: push.customerMessage.isNotEmpty
-            ? push.customerMessage
-            : 'M-Pesa rejected the request.',
+        message: 'Could not reach M-Pesa server: $e',
       );
       return;
     }
@@ -92,65 +85,52 @@ class MpesaService {
     yield PaymentStatus(
       state: PaymentState.awaitingPin,
       checkoutRequestId: push.checkoutRequestId,
-      message: push.customerMessage,
+      message: push.customerMessage.isNotEmpty
+          ? push.customerMessage
+          : 'Enter your M-Pesa PIN on your phone.',
     );
 
-    // 2. Poll stkQuery until final result (max ~90s, 3s interval)
     final deadline = DateTime.now().add(const Duration(seconds: 90));
     while (DateTime.now().isBefore(deadline)) {
       await Future.delayed(const Duration(seconds: 3));
-      if (!_connectivity.isOnline) {
-        // Connectivity lost mid-poll. Do NOT report failure.
-        // Money may have been taken.
+      if (!connectivity.isOnline) {
         yield PaymentStatus(
           state: PaymentState.timeout,
           checkoutRequestId: push.checkoutRequestId,
-          message:
-          'Lost connection while checking payment. If you received an M-Pesa SMS, payment succeeded — otherwise retry later.',
+          message: 'Lost connection while checking payment.',
         );
         return;
       }
+
       try {
-        final q = await _query.query(push.checkoutRequestId);
-        final code = '${q['ResultCode'] ?? ''}';
-        final desc = q['ResultDesc']?.toString() ?? '';
+        final res = await _http
+            .get(config.statusUri(push.checkoutRequestId))
+            .timeout(const Duration(seconds: 15));
 
-        if (code == '0') {
-          // Success — receipt is in CallbackMetadata but stkQuery usually
-          // does not include it; we still confirm success.
-          yield PaymentStatus(
-            state: PaymentState.success,
-            checkoutRequestId: push.checkoutRequestId,
-            message: desc.isNotEmpty ? desc : 'Payment successful',
-          );
-          return;
-        }
+        if (res.statusCode == 404) continue;
+        if (res.statusCode != 200) continue;
 
-        // In-progress codes: 1037 = timeout on Safaricom side,
-        // 4999 = still processing. Anything else is final.
-        if (code == '1037' || code == '4999') {
-          continue; // keep polling until deadline
-        }
-
-        // Final failure
-        yield PaymentStatus(
-          state: PaymentState.failed,
+        final json = jsonDecode(res.body) as Map<String, dynamic>;
+        final current = PaymentStatus.fromJson(
+          json,
           checkoutRequestId: push.checkoutRequestId,
-          message: desc.isNotEmpty ? desc : 'Payment was not completed.',
         );
+
+        if (current.state == PaymentState.awaitingPin) continue;
+
+        yield current;
         return;
       } catch (_) {
-        // Network blip — keep polling
         continue;
       }
     }
 
-    // Ran out of time without a definitive answer
     yield PaymentStatus(
       state: PaymentState.timeout,
       checkoutRequestId: push.checkoutRequestId,
-      message:
-      'Still waiting on M-Pesa. If you got an SMS confirmation, it succeeded.',
+      message: 'Still waiting on M-Pesa. If you got an SMS confirmation, it succeeded.',
     );
   }
+
+  void dispose() => _http.close();
 }

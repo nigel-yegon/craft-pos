@@ -1,68 +1,26 @@
+// lib/core/services/mpesa/mpesa_models.dart
+
 enum PaymentState { idle, initiating, awaitingPin, success, failed, timeout }
 
-class StkPushRequest {
-  final String phone;        // 2547XXXXXXXX
-  final int amount;          // whole KES
-  final String accountRef;   // max 12 chars
-  final String description;  // max 13 chars
-
-  const StkPushRequest({
-    required this.phone,
-    required this.amount,
-    required this.accountRef,
-    required this.description,
-  });
-
-  Map<String, dynamic> toJson(String timestamp, String password) => {
-    'BusinessShortCode': _shortcodePlaceholder,
-    'Password': password,
-    'Timestamp': timestamp,
-    'TransactionType': 'CustomerPayBillOnline',
-    'Amount': amount,
-    'PartyA': phone,
-    'PartyB': _shortcodePlaceholder,
-    'PhoneNumber': phone,
-    'CallBackURL': _callbackPlaceholder,
-    'AccountReference': accountRef,
-    'TransactionDesc': description,
-  };
-
-  // These get overwritten in MpesaStkPush before sending.
-  static String _shortcodePlaceholder = '';
-  static String _callbackPlaceholder = '';
-  static void configure(String shortcode, String callback) {
-    _shortcodePlaceholder = shortcode;
-    _callbackPlaceholder = callback;
-  }
-}
-
-class StkPushResult {
-  final String merchantRequestId;
+/// The simplified response from our Next.js backend when initiating STK Push.
+class StkPushResponse {
   final String checkoutRequestId;
-  final String responseCode;
-  final String responseDescription;
   final String customerMessage;
 
-  StkPushResult({
-    required this.merchantRequestId,
+  const StkPushResponse({
     required this.checkoutRequestId,
-    required this.responseCode,
-    required this.responseDescription,
     required this.customerMessage,
   });
 
-  factory StkPushResult.fromJson(Map<String, dynamic> j) => StkPushResult(
-    merchantRequestId: j['MerchantRequestID'] ?? '',
-    checkoutRequestId: j['CheckoutRequestID'] ?? '',
-    responseCode: j['ResponseCode'] ?? '',
-    responseDescription: j['ResponseDescription'] ?? '',
-    customerMessage: j['CustomerMessage'] ?? '',
+  factory StkPushResponse.fromJson(Map<String, dynamic> j) => StkPushResponse(
+    checkoutRequestId: j['checkoutRequestId'] as String? ?? '',
+    customerMessage: j['customerMessage'] as String? ?? '',
   );
 }
 
 class PaymentStatus {
   final PaymentState state;
-  final String? receipt;      // M-Pesa receipt number on success
+  final String? receipt;
   final String? message;
   final String? checkoutRequestId;
 
@@ -74,4 +32,49 @@ class PaymentStatus {
   });
 
   static const idle = PaymentStatus(state: PaymentState.idle);
+
+  /// Build from our Next.js backend's `/api/mpesa/status/:id` response.
+  factory PaymentStatus.fromJson(
+      Map<String, dynamic> j, {
+        required String checkoutRequestId,
+      }) {
+    // The backend returns uppercase statuses: PENDING, SUCCESS, FAILED, TIMEOUT
+    final status = (j['status'] as String?)?.toUpperCase() ?? '';
+    final receipt = j['receipt'] as String?;
+    final resultDesc = j['resultDesc'] as String?;
+
+    switch (status) {
+      case 'SUCCESS':
+        return PaymentStatus(
+          state: PaymentState.success,
+          receipt: receipt,
+          message: resultDesc ?? 'Payment successful',
+          checkoutRequestId: checkoutRequestId,
+        );
+      case 'PENDING':
+        return PaymentStatus(
+          state: PaymentState.awaitingPin,
+          checkoutRequestId: checkoutRequestId,
+        );
+      case 'TIMEOUT':
+        return PaymentStatus(
+          state: PaymentState.timeout,
+          checkoutRequestId: checkoutRequestId,
+          message: resultDesc ??
+              'Payment status unknown. Check your M-Pesa SMS.',
+        );
+      case 'FAILED':
+      default:
+        return PaymentStatus(
+          state: PaymentState.failed,
+          checkoutRequestId: checkoutRequestId,
+          message: resultDesc ?? 'Payment was not completed.',
+        );
+    }
+  }
+
+  bool get isTerminal =>
+      state == PaymentState.success ||
+          state == PaymentState.failed ||
+          state == PaymentState.timeout;
 }
