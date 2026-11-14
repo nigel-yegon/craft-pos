@@ -1,3 +1,5 @@
+// lib/features/inventory/stock_report_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -10,7 +12,15 @@ import '../../core/utils/pdf_helper.dart';
 
 class StockReportScreen extends ConsumerStatefulWidget {
   final ProductProvider provider;
-  const StockReportScreen({super.key, required this.provider});
+
+  /// 0 = Summary (default), 1 = Ledger.
+  final int initialTab;
+
+  const StockReportScreen({
+    super.key,
+    required this.provider,
+    this.initialTab = 0,
+  });
 
   @override
   ConsumerState<StockReportScreen> createState() => _StockReportScreenState();
@@ -21,7 +31,6 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
   late TabController _tabController;
   String _search = '';
 
-  // Filter State
   String? _filterType;
   String _filterPeriod = 'all';
   DateTimeRange? _filterDateRange;
@@ -31,9 +40,11 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    // Rebuild the AppBar action when the tab changes so the export
-    // button label/behavior stays in sync.
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTab,
+    );
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -47,9 +58,6 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
 
   bool get _isLedgerTab => _tabController.index == 1;
 
-  // ═══════════════════════════════════════════════════════════════════
-  // EXPORT (tab-aware)
-  // ═══════════════════════════════════════════════════════════════════
   Future<void> _exportCurrentTab() async {
     if (_isExporting) return;
     setState(() => _isExporting = true);
@@ -115,9 +123,6 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // FILTER LOGIC (shared by UI + export so PDF = screen)
-  // ═══════════════════════════════════════════════════════════════════
   List<StockMovement> _filterMovements(
       List<StockMovement> movements,
       Map<String, String> names,
@@ -147,8 +152,8 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
       bool matchesDateRange = true;
       if (_filterDateRange != null) {
         matchesDateRange = !m.createdAt.isBefore(_filterDateRange!.start) &&
-            !m.createdAt.isAfter(_filterDateRange!.end
-                .add(const Duration(days: 1))); // inclusive end day
+            !m.createdAt.isAfter(
+                _filterDateRange!.end.add(const Duration(days: 1)));
       }
 
       return matchesSearch &&
@@ -190,9 +195,6 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
     });
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // FILTER SHEET
-  // ═══════════════════════════════════════════════════════════════════
   Future<void> _pickDateRange() async {
     final now = DateTime.now();
     final picked = await showDateRangePicker(
@@ -260,7 +262,8 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
                     spacing: 8,
                     children: [
                       _buildFilterChip('All Types', null, setModalState),
-                      _buildFilterChip('Purchases', 'purchase', setModalState),
+                      _buildFilterChip(
+                          'Purchases', 'purchase', setModalState),
                       _buildFilterChip('Sales', 'sale', setModalState),
                       _buildFilterChip(
                           'Adjustments', 'adjustment', setModalState),
@@ -281,7 +284,6 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
                     ],
                   ),
                   const SizedBox(height: 20),
-                  // ── Date Range Picker ──
                   const Text('Custom Date Range',
                       style: TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w600)),
@@ -389,9 +391,6 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // BUILD
-  // ═══════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -604,6 +603,37 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
                 },
               ),
             ),
+
+            // ⭐ Bottom export button — clears the floating nav pill.
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                12,
+                20,
+                12 + AppTheme.navClearance,
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isExporting ? null : _exportSummaryPdf,
+                  icon: const Icon(Icons.picture_as_pdf, size: 18),
+                  label: Text(
+                    _isExporting
+                        ? 'Exporting...'
+                        : 'Export Summary PDF',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.heroGreen,
+                    side: BorderSide(
+                        color: AppTheme.heroGreen.withValues(alpha: 0.3)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         );
       },
@@ -666,7 +696,8 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
                     hintText: 'Search by product, note, or type...',
                     prefixIcon: Icon(Icons.search),
                   ),
-                  onChanged: (v) => setState(() => _search = v.toLowerCase()),
+                  onChanged: (v) =>
+                      setState(() => _search = v.toLowerCase()),
                 ),
               ),
               const SizedBox(width: 8),
@@ -675,10 +706,13 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppTheme.softMint,
+                    color: _hasActiveFilters
+                        ? AppTheme.heroGreen.withValues(alpha: 0.1)
+                        : AppTheme.softMint,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(Icons.tune, color: AppTheme.heroGreen),
+                  child: const Icon(Icons.tune,
+                      color: AppTheme.heroGreen),
                 ),
               ),
             ],
@@ -690,7 +724,8 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                const Icon(Icons.filter_alt, size: 14, color: AppTheme.heroGreen),
+                const Icon(Icons.filter_alt,
+                    size: 14, color: AppTheme.heroGreen),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -742,7 +777,8 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
 
                   if (filtered.isEmpty) {
                     return const Center(
-                      child: Text('No movements match your filters.',
+                      child: Text(
+                          'No movements match your filters.',
                           style: TextStyle(color: AppTheme.onLightMuted)),
                     );
                   }
@@ -852,6 +888,35 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
                 },
               );
             },
+          ),
+        ),
+
+        // ⭐ Bottom export button for the Ledger tab.
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            12,
+            16,
+            12 + AppTheme.navClearance,
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _isExporting ? null : _exportLedgerPdf,
+              icon: const Icon(Icons.receipt_long, size: 18),
+              label: Text(
+                _isExporting ? 'Exporting...' : 'Export Ledger PDF',
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.heroGreen,
+                side: BorderSide(
+                    color: AppTheme.heroGreen.withValues(alpha: 0.3)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
           ),
         ),
       ],

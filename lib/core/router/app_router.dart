@@ -27,6 +27,14 @@ import '../../features/settings/subscription_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../../features/reports/transactions_screen.dart';
 
+// (imports — keep all existing ones, ensure stock_report_screen.dart is present)
+import '../../features/inventory/inventory_screen.dart';
+import '../../features/inventory/stock_report_screen.dart';   // ⭐ must be present
+// ... other imports ...
+
+// Inside the /reports GoRoute's routes:
+
+
 Future<GoRouter> createAppRouter(
     AppDatabase db, {
       String initialLocation = '/dashboard',
@@ -135,6 +143,7 @@ Future<GoRouter> createAppRouter(
             builder: (context, state) => SalesScreen(
               productProvider: productProvider,
               salesProvider: salesProvider,
+              categoryProvider: categoryProvider,
             ),
             routes: [
               GoRoute(
@@ -149,10 +158,17 @@ Future<GoRouter> createAppRouter(
             builder: (context, state) =>
                 ReportsScreen(provider: reportProvider),
             routes: [
+              // Inside the /reports GoRoute's routes: [...]
               GoRoute(
                 path: 'stock',
-                builder: (context, state) =>
-                    StockReportScreen(provider: productProvider),
+                builder: (context, state) {
+                  final extra = state.extra;
+                  final initialTab = (extra is int) ? extra : 0;
+                  return StockReportScreen(
+                    provider: productProvider,
+                    initialTab: initialTab,
+                  );
+                },
               ),
               GoRoute(
                 path: 'transactions',

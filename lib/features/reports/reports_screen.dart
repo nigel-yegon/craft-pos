@@ -37,7 +37,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
   int _expensePaid = 0;
   int _expensePending = 0;
 
-  // ⭐ New — per-method totals for the selected period.
+  // Per-method totals for the selected period.
   int _cashTotal = 0;
   int _mpesaTotal = 0;
 
@@ -109,7 +109,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     final expenseSummary =
     await widget.provider.getExpenseSummary(_start, _end);
 
-    // ⭐ Load per-method totals for the period.
     final paymentTotals =
     await widget.provider.getPaymentMethodTotals(_start, _end);
 
@@ -158,8 +157,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
   }
 
   Future<void> _generateReport() async {
-    // Preload split-payment rows for the sales shown on screen (matches
-    // the "Transactions" section — up to 20 to keep the PDF concise).
     final shown = _salesInRange.take(20).toList();
     final breakdown = <String, List<SalePayment>>{};
     for (final sale in shown) {
@@ -208,7 +205,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          // ⭐ Transactions shortcut (routes to the new screen).
           IconButton(
             tooltip: 'All transactions',
             icon: const Icon(Icons.list_alt, color: AppTheme.heroGreen),
@@ -252,9 +248,19 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
         onRefresh: () => _loadData(_tabController.index),
         color: AppTheme.heroGreen,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            // ⭐ Clear the floating nav pill at the bottom.
+            AppTheme.navClearance + 120,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
+            // ⭐ Keep the Column intrinsic-height so the scroll view
+            //    doesn't clip in profile / release builds.
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 'Period: $_periodLabel',
@@ -274,8 +280,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                     'Sales',
                     _formatKsh(_summary['sales'] ?? 0),
                     const [AppTheme.heroGreen, AppTheme.midGreen],
-                    const CurrencyIcon(
-                        color: Colors.white, size: 20),
+                    const CurrencyIcon(color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 12),
                   _buildMetricCard(
@@ -298,7 +303,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                         size: 20, color: Colors.white),
                   ),
                   const SizedBox(width: 12),
-                  // ⭐ Tappable — opens the all-transactions screen.
                   GestureDetector(
                     onTap: () =>
                         context.push('/reports/transactions'),
@@ -317,17 +321,13 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               ),
               const SizedBox(height: 24),
 
-              // ─── Money Position Card ───
-              _buildMoneyPositionCard(),
-              const SizedBox(height: 24),
-
               // ─── Held orders alert ───
               if (_heldOrders.isNotEmpty) ...[
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.burntOrange
-                        .withValues(alpha: 0.05),
+                    color:
+                    AppTheme.burntOrange.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                         color: AppTheme.burntOrange
@@ -355,8 +355,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                               'Awaiting payment. Go to Sales → Held Orders.',
                               style: TextStyle(
                                   fontSize: 11,
-                                  color:
-                                  AppTheme.onLightSecondary),
+                                  color: AppTheme.onLightSecondary),
                             ),
                           ],
                         ),
@@ -367,7 +366,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                 const SizedBox(height: 24),
               ],
 
-              // ─── Sales trend chart ───
+              // ⭐ ─── Sales trend chart (moved up) ───
               const Text(
                 'Sales Trend (Last 7 Days)',
                 style: TextStyle(
@@ -384,11 +383,15 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                      color: AppTheme.inkBlack
-                          .withValues(alpha: 0.06)),
+                      color:
+                      AppTheme.inkBlack.withValues(alpha: 0.06)),
                 ),
                 child: SizedBox(height: 220, child: _buildChart()),
               ),
+              const SizedBox(height: 24),
+
+              // ⭐ ─── Money Position Card (moved down) ───
+              _buildMoneyPositionCard(),
               const SizedBox(height: 24),
 
               // ─── Transactions ───
@@ -438,7 +441,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                   ),
                 )
               else
-                ..._salesInRange.take(20).map(_buildTransactionTile),
+                ..._salesInRange
+                    .take(20)
+                    .map(_buildTransactionTile),
               const SizedBox(height: 40),
             ],
           ),
@@ -499,7 +504,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
             sub: true,
           ),
 
-          // ⭐ Payment-method breakdown for the period.
           if (_cashTotal > 0 || _mpesaTotal > 0) ...[
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 10),
@@ -711,7 +715,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                       );
                     }),
 
-                    // ⭐ Split-payment breakdown.
                     if (isSplit) ...[
                       const SizedBox(height: 12),
                       const Text(

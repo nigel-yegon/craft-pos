@@ -1,11 +1,13 @@
-import 'package:craft_pos/core/providers/database_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:craft_pos/core/database/app_database.dart';
 import 'package:craft_pos/core/models/subscription_model.dart';
 import 'package:craft_pos/core/models/subscription_plan.dart';
 import 'package:craft_pos/core/providers/mpesa_provider.dart';
+import 'package:craft_pos/core/providers/ui_state_provider.dart';
+import 'package:craft_pos/core/providers/database_provider.dart';
 import 'package:craft_pos/core/services/subscription_service.dart';
 import 'package:craft_pos/core/theme/app_theme.dart';
 import 'package:craft_pos/core/widgets/activation_code_section.dart';
@@ -28,8 +30,6 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   SubscriptionPlan get _selectedPlan =>
       SubscriptionPlan.all[_selectedPlanIndex];
 
-  // ⭐ Lazily built service. If you already have a provider for it
-  //    (e.g. `subscriptionServiceProvider`), swap this for `ref.read(...)`.
   SubscriptionService get _subs =>
       SubscriptionService(ref.read(databaseProvider));
 
@@ -43,7 +43,6 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   }
 
   Future<void> _startSubscribe(PaymentAttempt? pending) async {
-    // ⭐ Guard 1: refuse if anything is pending.
     if (pending != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -67,34 +66,36 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       return;
     }
 
-    // The sheet handles startAttempt() + recordAttempt() internally.
-    final result = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => MpesaPaymentSheet(plan: _selectedPlan),
-    );
-
-    if (!mounted) return;
-
-    if (result == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Subscription activated!'),
-          backgroundColor: AppTheme.heroGreen,
+    // ⭐ Hide the shell's nav pill while the payment sheet is open.
+    ref.read(modalOpenProvider.notifier).state = true;
+    try {
+      final result = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
+        builder: (_) => MpesaPaymentSheet(plan: _selectedPlan),
       );
+
+      if (!mounted) return;
+
+      if (result == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Subscription activated!'),
+            backgroundColor: AppTheme.heroGreen,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        ref.read(modalOpenProvider.notifier).state = false;
+      }
     }
-    // If result == null, the payment is still pending — the StreamBuilder
-    // below will show the pending banner automatically.
   }
 
-  // ⭐ Called from the pending banner's Cancel button. Marks the attempt
-  //    as timeout. If M-Pesa already charged, the reconciler will flip it
-  //    to success on the next pass — nothing is lost.
   Future<void> _cancelPending(PaymentAttempt pending) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -143,9 +144,6 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       body: StreamBuilder<SubscriptionState>(
         stream: _subs.watchFullState(),
         builder: (context, snapshot) {
-          // Fallback to empty state while the first snapshot arrives —
-          // the screen stays interactive (plans still tappable) but the
-          // button is disabled until we know if there's a pending attempt.
           final state = snapshot.data ?? SubscriptionState.empty;
           final pending = state.pendingAttempt;
           final isLocked = pending != null;
@@ -157,7 +155,6 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               children: [
                 const OfflineBanner(),
 
-                // ⭐ Pending payment banner.
                 if (pending != null) ...[
                   _PendingPaymentBanner(
                     attempt: pending,
@@ -188,7 +185,6 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // ⭐ Plan tiles: disabled while pending.
                 ...SubscriptionPlan.all.asMap().entries.map((entry) {
                   final index = entry.key;
                   final plan = entry.value;
@@ -210,7 +206,6 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    // ⭐ Disabled while pending.
                     onPressed:
                     isLocked ? null : () => _startSubscribe(pending),
                     style: ElevatedButton.styleFrom(
@@ -280,7 +275,7 @@ class _PendingPaymentBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
+          const SizedBox(
             width: 20,
             height: 20,
             child: CircularProgressIndicator(
@@ -293,7 +288,7 @@ class _PendingPaymentBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Payment in progress',
                   style: TextStyle(
                     fontSize: 13,

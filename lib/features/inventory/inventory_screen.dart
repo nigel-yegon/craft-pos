@@ -1,6 +1,7 @@
 // lib/features/inventory/inventory_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' hide Column;
 
@@ -22,8 +23,6 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   String _search = '';
-
-  // ⭐ Filter state
   String _stockStatus = 'all'; // 'all' | 'in' | 'low' | 'out'
   String _sortBy = 'name_asc';
 
@@ -59,6 +58,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return parts.isEmpty ? 'All products' : parts.join(' • ');
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // Filter sheet
+  // ═══════════════════════════════════════════════════════════════════
   void _showFilterSheet() {
     showModalBottomSheet(
       context: context,
@@ -88,9 +90,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           style: TextStyle(
                               fontSize: 18, fontWeight: FontWeight.w700)),
                       TextButton(
-                        onPressed: () {
-                          setModalState(_clearFilters);
-                        },
+                        onPressed: () => setModalState(_clearFilters),
                         child: const Text('Reset',
                             style: TextStyle(color: AppTheme.burntOrange)),
                       ),
@@ -120,9 +120,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     children: [
                       _buildSortChip('Name A→Z', 'name_asc', setModalState),
                       _buildSortChip('Name Z→A', 'name_desc', setModalState),
-                      _buildSortChip('Stock high→low', 'stock_high', setModalState),
-                      _buildSortChip('Stock low→high', 'stock_low', setModalState),
-                      _buildSortChip('Recently updated', 'recent', setModalState),
+                      _buildSortChip(
+                          'Stock high→low', 'stock_high', setModalState),
+                      _buildSortChip(
+                          'Stock low→high', 'stock_low', setModalState),
+                      _buildSortChip(
+                          'Recently updated', 'recent', setModalState),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -185,13 +188,28 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Stock'),
+        title: const Text('Manage my Stock'),
         backgroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          // ⭐ Stock Summary — opens /reports/stock on the Summary tab.
+          IconButton(
+            tooltip: 'Stock Summary',
+            icon: const Icon(Icons.analytics_outlined,
+                color: AppTheme.heroGreen),
+            onPressed: () => context.push('/reports/stock', extra: 0),
+          ),
+          // ⭐ Ledger — opens /reports/stock on the Ledger tab.
+          IconButton(
+            tooltip: 'Stock Ledger',
+            icon: const Icon(Icons.receipt_long_outlined,
+                color: AppTheme.heroGreen),
+            onPressed: () => context.push('/reports/stock', extra: 1),
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // ⭐ Search + filter button
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Row(
@@ -217,11 +235,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           : AppTheme.softMint,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.tune,
-                      color: _hasActiveFilters
-                          ? AppTheme.heroGreen
-                          : AppTheme.heroGreen,
+                      color: AppTheme.heroGreen,
                     ),
                   ),
                 ),
@@ -229,7 +245,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
           ),
 
-          // ⭐ Active filter summary bar
           if (_hasActiveFilters)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -289,7 +304,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   );
                 }
 
-                // ⭐ Apply filters + sort
                 return _buildFilteredList(all);
               },
             ),
@@ -315,8 +329,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildFilteredList(List<Product> products) {
-    // For status filtering and stock sorting, we need the stock per product.
-    // Fetch stocks in parallel, then apply filters/sorts.
     return FutureBuilder<List<_StockEntry>>(
       future: Future.wait(
         products.map((p) async {
@@ -332,7 +344,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
         var entries = snapshot.data!;
 
-        // Status filter
         entries = entries.where((e) {
           switch (_stockStatus) {
             case 'in':
@@ -347,15 +358,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
           }
         }).toList();
 
-        // Sort
         switch (_sortBy) {
           case 'name_asc':
-            entries.sort((a, b) =>
-                a.product.name.toLowerCase().compareTo(b.product.name.toLowerCase()));
+            entries.sort((a, b) => a.product.name
+                .toLowerCase()
+                .compareTo(b.product.name.toLowerCase()));
             break;
           case 'name_desc':
-            entries.sort((a, b) =>
-                b.product.name.toLowerCase().compareTo(a.product.name.toLowerCase()));
+            entries.sort((a, b) => b.product.name
+                .toLowerCase()
+                .compareTo(a.product.name.toLowerCase()));
             break;
           case 'stock_high':
             entries.sort((a, b) => b.stockMilli.compareTo(a.stockMilli));
@@ -402,7 +414,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// STOCK ENTRY — bundles product + precomputed stock for filtering
+// STOCK ENTRY
 // ═══════════════════════════════════════════════════════════════════
 
 class _StockEntry {
@@ -750,7 +762,7 @@ class _LastMovementPanel extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// ADJUST STOCK SCREEN
+// ADJUST STOCK SCREEN — pushed as a modal
 // ═══════════════════════════════════════════════════════════════════
 
 class AdjustStockScreen extends StatefulWidget {

@@ -15,6 +15,12 @@ class _AppShellState extends State<AppShell> {
   bool _isNavVisible = true;
   double _lastScrollOffset = 0;
 
+  // ⭐ Height reserved *inside the body* for the floating pill.
+  //    A screen's own FloatingActionButton / bottom: offset / SafeArea will
+  //    automatically clear the pill because the body's MediaQuery.padding.bottom
+  //    is set to this value.
+  static const double _navReservedHeight = 100.0;
+
   static const _tabs = [
     ('/dashboard', Icons.home_outlined, Icons.home, 'Home'),
     ('/products', Icons.storefront_outlined, Icons.storefront, 'Products'),
@@ -50,19 +56,41 @@ class _AppShellState extends State<AppShell> {
     final location = GoRouterState.of(context).uri.path;
     final currentIndex = _indexForLocation(location);
 
+    final mediaQuery = MediaQuery.of(context);
+
+    // ⭐ Total inset a screen should leave at the bottom of its body:
+    //    - the real device inset (gesture bar / home indicator)
+    //    - PLUS the nav reservation (pill + breathing room)
+    //    This is what FABs, SafeAreas, and `bottom:` offsets inside a screen
+    //    will use to position themselves above the pill.
+    final childBottomInset =
+        mediaQuery.padding.bottom + _navReservedHeight;
+
     return Scaffold(
       backgroundColor: Colors.white,
       // ⭐ Body extends behind the pill so content scrolls *under* it.
+      //    The pill's visual "float" comes from this + the pill's shadow.
       extendBody: true,
-      body: NotificationListener<ScrollNotification>(
-        onNotification: _handleScrollNotification,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 260),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          child: KeyedSubtree(
-            key: ValueKey(location),
-            child: widget.child,
+      body: MediaQuery(
+        // Override the child's padding.bottom so any FAB / SafeArea / bottom
+        // offset inside a screen sits above the pill — no per-screen patches.
+        // The override applies to the *child tree only* (this MediaQuery wraps
+        // only `body`, not the pill's own subtree below).
+        data: mediaQuery.copyWith(
+          padding: mediaQuery.padding.copyWith(
+            bottom: childBottomInset,
+          ),
+        ),
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _handleScrollNotification,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: KeyedSubtree(
+              key: ValueKey(location),
+              child: widget.child,
+            ),
           ),
         ),
       ),
@@ -76,13 +104,17 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _buildFloatingNav(int currentIndex) {
+    // ⚠️ Use the *root* MediaQuery (the one outside the body override) so the
+    //    pill itself doesn't inherit the inflated padding.bottom. If we used
+    //    MediaQuery.of(context) here it would be the shell's own context —
+    //    which is above the body override, so this is actually correct, but
+    //    we make it explicit by reading the shell-level padding.
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final bottomGap = bottomInset > 0 ? bottomInset + 4 : 18.0;
 
     return Container(
-      // ⭐ Soft green gradient strip behind the pill — hides the white
-      //    scaffold body that would otherwise bleed through the pill's
-      //    shadow while content scrolls behind it.
+      // ⭐ Soft green gradient strip behind the pill — hides any white bleed
+      //    from the scaffold body while keeping the pill floating.
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
