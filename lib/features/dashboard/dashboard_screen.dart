@@ -577,14 +577,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               ),
                               itemBuilder: (context, index) => items[index],
                             );
+
                           },
+
+
                         ),
                       ],
                     ),
+
+
                   ),
                 ),
 
-
+                _buildBrandingSlider(),
 
                 // ═══ METRICS GRID ═══
                 Padding(
@@ -664,7 +669,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ],
                   ),
                 ),
-             //   _buildBrandingSlider(),
+
 
                 // ═══ LOW STOCK ═══
                 if (_lowStockCount > 0)

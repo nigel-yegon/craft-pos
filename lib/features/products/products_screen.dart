@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/database/app_database.dart';
 import '../../core/providers/category_provider.dart';
 import '../../core/providers/product_provider.dart';
@@ -85,8 +86,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 }
 
                 return ListView.separated(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  // ⭐ Bottom padding so the last row isn't hidden behind
+                  //    the pill when the content scrolls under it.
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    8,
+                    16,
+                    AppTheme.navClearance + 24,
+                  ),
                   itemCount: filteredProducts.length,
                   separatorBuilder: (context, index) =>
                   const SizedBox(height: 8),
@@ -169,12 +176,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ProductFormScreen(provider: widget.provider),
+      // ⭐ FAB pushed above the pill via the shared clearance constant.
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: AppTheme.navClearance + 24),
+        child: FloatingActionButton(
+          child: const Icon(Icons.add),
+          backgroundColor: AppTheme.brightGreen,
+          foregroundColor: AppTheme.inkBlack,
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProductFormScreen(provider: widget.provider),
+            ),
           ),
         ),
       ),

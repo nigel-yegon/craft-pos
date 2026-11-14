@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../core/database/app_database.dart';
 import '../../core/providers/product_provider.dart';
 import '../../core/providers/sales_provider.dart';
@@ -10,7 +11,7 @@ class SalesScreen extends StatefulWidget {
   final ProductProvider productProvider;
   final SalesProvider salesProvider;
 
-  /// ⭐ When true, the held-orders screen opens immediately after mount.
+  /// When true, the held-orders screen opens immediately after mount.
   /// Used by the dashboard "Held Orders" shortcut so the resume cart
   /// always has a live SalesScreen to pop back into.
   final bool autoOpenHeldOrders;
@@ -71,7 +72,6 @@ class _SalesScreenState extends State<SalesScreen> {
     });
   }
 
-  // ⭐ Split-payment flow.
   Future<void> _payNow() async {
     if (_cart.isEmpty) return;
 
@@ -85,8 +85,8 @@ class _SalesScreenState extends State<SalesScreen> {
 
     if (result == null || !mounted) return;
 
-    // Build split list. Cap recorded amounts at the sale total so
-    // overpayment (change) isn't double-counted in sale_payments.
+    // Cap recorded amounts at the sale total so overpayment (change) isn't
+    // double-counted in sale_payments.
     int remaining = total;
     final splits = <SalePaymentSplit>[];
 
@@ -273,7 +273,12 @@ class _SalesScreenState extends State<SalesScreen> {
                     children: [
                       Expanded(flex: 3, child: _buildProductGrid()),
                       if (_cartExpanded)
-                        SizedBox(height: 380, child: _buildCart()),
+                        SizedBox(
+                          // ⭐ Height bumped by navClearance so the
+                          //    items list keeps its original size.
+                          height: 380 + AppTheme.navClearance,
+                          child: _buildCart(),
+                        ),
                     ],
                   ),
                 ),
@@ -282,7 +287,7 @@ class _SalesScreenState extends State<SalesScreen> {
           ),
           if (!_cartExpanded)
             Positioned(
-              bottom: 20,
+              bottom: AppTheme.navClearance + 20,
               right: 20,
               child: _buildFloatingCartBadge(),
             ),
@@ -395,7 +400,14 @@ class _SalesScreenState extends State<SalesScreen> {
         }
 
         return GridView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          // ⭐ Bottom padding so the last row of products isn't hidden
+          //    behind the nav pill when scrolled to the bottom.
+          padding: EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            AppTheme.navClearance + 24,
+          ),
           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 190,
             childAspectRatio: 0.82,
@@ -621,7 +633,14 @@ class _SalesScreenState extends State<SalesScreen> {
           ),
           const Divider(height: 1, color: AppTheme.surfaceMuted),
           Padding(
-            padding: const EdgeInsets.all(16),
+            // ⭐ navClearance on the bottom so Total + Hold + Pay clear
+            //    the floating nav pill.
+            padding: const EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              16 + AppTheme.navClearance,
+            ),
             child: Column(
               children: [
                 Row(

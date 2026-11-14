@@ -50,40 +50,22 @@ class _AppShellState extends State<AppShell> {
     final location = GoRouterState.of(context).uri.path;
     final currentIndex = _indexForLocation(location);
 
-    // ⭐ Height reserved for the floating pill + its gradient strip.
-    //    Any FloatingActionButton or `bottom:` offset inside a screen that
-    //    reads MediaQuery.padding.bottom will now sit above the nav pill.
-    final mediaQuery = MediaQuery.of(context);
-    final navReservedHeight = 100.0 + mediaQuery.padding.bottom;
-
     return Scaffold(
       backgroundColor: Colors.white,
-      // Let content scroll behind the floating pill.
-      extendBody: false,
-      body: MediaQuery(
-        // Override the child's MediaQuery so its bottom padding reflects
-        // the floating pill. FABs, `bottom:` offsets, and SafeArea widgets
-        // inside any screen automatically clear the nav — no per-screen
-        // `bottom: 100` patches needed.
-        data: mediaQuery.copyWith(
-          padding: mediaQuery.padding.copyWith(
-            bottom: navReservedHeight,
-          ),
-        ),
-        child: NotificationListener<ScrollNotification>(
-          onNotification: _handleScrollNotification,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 260),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            child: KeyedSubtree(
-              key: ValueKey(location),
-              child: widget.child,
-            ),
+      // ⭐ Body extends behind the pill so content scrolls *under* it.
+      extendBody: true,
+      body: NotificationListener<ScrollNotification>(
+        onNotification: _handleScrollNotification,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: KeyedSubtree(
+            key: ValueKey(location),
+            child: widget.child,
           ),
         ),
       ),
-      // Floating pill inside a soft green gradient — no white band.
       bottomNavigationBar: AnimatedSlide(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -98,8 +80,9 @@ class _AppShellState extends State<AppShell> {
     final bottomGap = bottomInset > 0 ? bottomInset + 4 : 18.0;
 
     return Container(
-      // ⭐ Green gradient strip behind the pill — hides the white scaffold
-      //    body that would otherwise bleed through the pill's shadow.
+      // ⭐ Soft green gradient strip behind the pill — hides the white
+      //    scaffold body that would otherwise bleed through the pill's
+      //    shadow while content scrolls behind it.
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+
 class AppTheme {
+  static const double navClearance = 96.0;
   // ─── Palette ───
   static const Color inkBlack = Color(0xFF04151F);
   static const Color heroGreen = Color(0xFF0F3D2E);
