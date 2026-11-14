@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -23,79 +24,236 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
   PaymentStatus _status = PaymentStatus.idle;
   bool _busy = false;
 
+  // Visual countdown during PIN entry.
+  Timer? _uiTimer;
+  int _secondsRemaining = 90;
+
   @override
   void dispose() {
+    _uiTimer?.cancel();
     _phoneController.dispose();
     super.dispose();
   }
 
   Future<void> _startPayment() async {
+    if (_busy) return;
+
     setState(() {
       _busy = true;
       _status = PaymentStatus.idle;
+      _secondsRemaining = 90;
     });
 
     final mpesa = ref.read(mpesaServiceProvider);
     final db = ref.read(databaseProvider);
-    final subService = SubscriptionService(db);
+    final subs = SubscriptionService(db);
 
-    final stream = mpesa.pay(
-      phone: _phoneController.text.trim(),
-      amount: widget.plan.amountKes,
-      plan: widget.plan.id, // 👈 REQUIRED: Added for the new backend service
-      accountRef: 'SUB-${widget.plan.id.toUpperCase()}', // Optional now, kept for API symmetry
-      description: widget.plan.title,                   // Optional now
-    );
+    // ⭐ Use an explicit StreamSubscription so we can cancel on any terminal
+    //    state and don't rely on `return` inside `await for` (which leaves
+    //    the stream open until the generator yields or closes).
+    StreamSubscription<PaymentStatus>? sub;
+    bool popped = false;
 
-    await for (final s in stream) {
-      if (!mounted) return;
-      setState(() => _status = s);
+    // ⭐ Guarded pop — call exactly once, from whichever path hits terminal
+    //    state first. Prevents "cannot pop during dispose" races.
+    void popOnce(bool? result) {
+      if (popped || !mounted) return;
+      popped = true;
+      Navigator.pop(context, result);
+    }
 
-      if (s.state == PaymentState.success) {
-        await subService.activate(plan: widget.plan.id, source: 'mpesa');
-        await subService.recordAttempt(
-          checkoutRequestId: s.checkoutRequestId ?? '',
-          amount: widget.plan.amountKes,
-          plan: widget.plan.id,
-          phone: _phoneController.text,
-          state: 'success',
-          receipt: s.receipt,
-          message: s.message,
+    try {
+      // ── Double-charge guard ─────────────────────────────────────
+      final attempt = await subs.startAttempt(
+        amount: widget.plan.amountKes,
+        plan: widget.plan.id,
+        phone: _phoneController.text.trim(),
+      );
+
+      if (attempt == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('A payment is already in progress. Please wait.'),
+            backgroundColor: AppTheme.burntOrange,
+          ),
         );
-        if (mounted) {
-          invalidateSubscription(ref);
-          await Future.delayed(const Duration(milliseconds: 800));
-          if (mounted) Navigator.pop(context, true);
-        }
+        popOnce(false);
         return;
       }
 
-      if (s.state == PaymentState.failed) {
-        await subService.recordAttempt(
-          checkoutRequestId: s.checkoutRequestId ?? '',
-          amount: widget.plan.amountKes,
-          plan: widget.plan.id,
-          phone: _phoneController.text,
-          state: 'failed',
-          message: s.message,
-        );
-        break;
-      }
+      // ── Stream + poll ───────────────────────────────────────────
+      final completer = Completer<void>();
 
-      if (s.state == PaymentState.timeout) {
-        await subService.recordAttempt(
-          checkoutRequestId: s.checkoutRequestId ?? '',
-          amount: widget.plan.amountKes,
-          plan: widget.plan.id,
-          phone: _phoneController.text,
-          state: 'pending',
-          message: s.message,
+      sub = mpesa
+          .pay(
+        phone: _phoneController.text.trim(),
+        amount: widget.plan.amountKes,
+        plan: widget.plan.id,
+        accountRef: 'SUB-${widget.plan.id.toUpperCase()}',
+        description: widget.plan.title,
+      )
+          .listen(
+            (s) async {
+          if (!mounted) return;
+
+          setState(() {
+            _status = s;
+            if (s.state == PaymentState.awaitingPin && _uiTimer == null) {
+              _startPollingCountdown();
+            }
+          });
+
+          // Link the checkoutRequestId to the pending attempt.
+          if (s.state == PaymentState.awaitingPin &&
+              s.checkoutRequestId != null) {
+            try {
+              await subs.recordAttempt(
+                checkoutRequestId: s.checkoutRequestId!,
+                amount: widget.plan.amountKes,
+                plan: widget.plan.id,
+                phone: _phoneController.text.trim(),
+                state: 'pending',
+              );
+            } catch (e) {
+              debugPrint('recordAttempt(pending) failed: $e');
+            }
+          }
+
+          if (s.state == PaymentState.success) {
+            // ⭐ Persist first, then pop. Persistence is what activates the
+            //    subscription — but we do it with a timeout so a slow DB
+            //    can't keep the sheet open indefinitely.
+            try {
+              await subs
+                  .recordAttempt(
+                checkoutRequestId: s.checkoutRequestId ?? '',
+                amount: widget.plan.amountKes,
+                plan: widget.plan.id,
+                phone: _phoneController.text.trim(),
+                state: 'success',
+                receipt: s.receipt,
+                message: s.message,
+              )
+                  .timeout(const Duration(seconds: 5));
+            } catch (e) {
+              debugPrint('recordAttempt(success) failed: $e');
+            }
+
+            try {
+              invalidateSubscription(ref);
+            } catch (e) {
+              debugPrint('invalidateSubscription failed: $e');
+            }
+
+            popOnce(true);
+            if (!completer.isCompleted) completer.complete();
+            await sub?.cancel();
+            return;
+          }
+
+          if (s.state == PaymentState.failed) {
+            try {
+              await subs
+                  .recordAttempt(
+                checkoutRequestId: s.checkoutRequestId ?? '',
+                amount: widget.plan.amountKes,
+                plan: widget.plan.id,
+                phone: _phoneController.text.trim(),
+                state: 'failed',
+                message: s.message,
+              )
+                  .timeout(const Duration(seconds: 5));
+            } catch (e) {
+              debugPrint('recordAttempt(failed) failed: $e');
+            }
+            popOnce(false);
+            if (!completer.isCompleted) completer.complete();
+            await sub?.cancel();
+            return;
+          }
+
+          if (s.state == PaymentState.timeout) {
+            try {
+              await subs
+                  .recordAttempt(
+                checkoutRequestId: s.checkoutRequestId ?? '',
+                amount: widget.plan.amountKes,
+                plan: widget.plan.id,
+                phone: _phoneController.text.trim(),
+                state: 'timeout',
+                message: s.message,
+              )
+                  .timeout(const Duration(seconds: 5));
+            } catch (e) {
+              debugPrint('recordAttempt(timeout) failed: $e');
+            }
+            // ⭐ null = "still pending" — the screen shows the pending banner
+            //    and the reconciler finishes the job.
+            popOnce(null);
+            if (!completer.isCompleted) completer.complete();
+            await sub?.cancel();
+            return;
+          }
+        },
+        onError: (e) async {
+          debugPrint('payment stream error: $e');
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Payment failed: $e'),
+              backgroundColor: AppTheme.burntOrange,
+            ),
+          );
+          popOnce(false);
+          if (!completer.isCompleted) completer.complete();
+        },
+        onDone: () {
+          if (!completer.isCompleted) completer.complete();
+        },
+        cancelOnError: false,
+      );
+
+      // Wait for the stream to deliver a terminal event or be cancelled.
+      await completer.future;
+    } catch (e) {
+      debugPrint('_startPayment error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment failed: $e'),
+            backgroundColor: AppTheme.burntOrange,
+          ),
         );
-        break;
+        popOnce(false);
+      }
+    } finally {
+      // ⭐ Always cancel the stream + countdown and clear _busy, no matter
+      //    which path we exited through. This is what was missing before.
+      await sub?.cancel();
+      _uiTimer?.cancel();
+      _uiTimer = null;
+      if (mounted && !popped) {
+        setState(() => _busy = false);
+      } else if (mounted) {
+        setState(() => _busy = false);
       }
     }
-
-    if (mounted) setState(() => _busy = false);
+  }
+  void _startPollingCountdown() {
+    _uiTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        if (_secondsRemaining > 0) {
+          _secondsRemaining--;
+        } else {
+          timer.cancel();
+        }
+      });
+    });
   }
 
   @override
@@ -147,40 +305,131 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
                 prefixIcon: Icon(Icons.phone),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // Status Messages
+            // ── Status UI ──
             if (_status.state == PaymentState.initiating)
-              _statusRow(Icons.hourglass_top, AppTheme.heroGreen,
-                  'Sending request to M-Pesa…'),
-            if (_status.state == PaymentState.awaitingPin)
-              _statusRow(Icons.sms_outlined, AppTheme.heroGreen,
-                  'Check your phone and enter your M-Pesa PIN.'),
-            if (_status.state == PaymentState.failed)
-              _statusRow(Icons.error_outline, AppTheme.burntOrange,
-                  _status.message ?? 'Payment failed.'),
-            if (_status.state == PaymentState.timeout)
-              _statusRow(Icons.info_outline, AppTheme.burntOrange,
-                  _status.message ?? 'Payment status unknown.'),
-            if (_status.state == PaymentState.success)
-              _statusRow(Icons.check_circle, AppTheme.heroGreen,
-                  'Payment successful!'),
+              _statusRow(
+                Icons.hourglass_top,
+                AppTheme.heroGreen,
+                'Sending request to M-Pesa...',
+              ),
 
-            const SizedBox(height: 12),
+            if (_status.state == PaymentState.awaitingPin)
+              _pinPromptCard(),
+
+            if (_status.state == PaymentState.failed)
+              _statusRow(
+                Icons.error_outline,
+                AppTheme.burntOrange,
+                _status.message ?? 'Payment failed.',
+              ),
+
+            if (_status.state == PaymentState.timeout)
+              _statusRow(
+                Icons.info_outline,
+                AppTheme.burntOrange,
+                _status.message ??
+                    'Payment status unknown. Check your SMS.',
+              ),
+
+            if (_status.state == PaymentState.success)
+              _statusRow(
+                Icons.check_circle,
+                AppTheme.heroGreen,
+                'Payment successful! Activating subscription...',
+              ),
+
+            const SizedBox(height: 16),
+
+            // ── Action Button ──
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _busy ? null : _startPayment,
-                child: _busy
+                onPressed:
+                (_busy &&
+                    _status.state != PaymentState.timeout &&
+                    _status.state != PaymentState.failed)
+                    ? null
+                    : _startPayment,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _status.state == PaymentState.timeout ||
+                      _status.state == PaymentState.failed
+                      ? AppTheme.inkBlack
+                      : AppTheme.brightGreen,
+                  foregroundColor: _status.state == PaymentState.timeout ||
+                      _status.state == PaymentState.failed
+                      ? Colors.white
+                      : AppTheme.inkBlack,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: _busy &&
+                    _status.state != PaymentState.timeout &&
+                    _status.state != PaymentState.failed
                     ? const SizedBox(
                   height: 20,
                   width: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-                    : const Text('Send STK Push'),
+                    : Text(
+                  _status.state == PaymentState.timeout ||
+                      _status.state == PaymentState.failed
+                      ? 'Try Again'
+                      : 'Send STK Push',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _pinPromptCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.brightGreen.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.brightGreen.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.sms, color: AppTheme.heroGreen),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _status.message ??
+                      'Check your phone and enter your M-Pesa PIN.',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.heroGreen,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: _secondsRemaining / 90,
+              backgroundColor: AppTheme.brightGreen.withValues(alpha: 0.2),
+              color: AppTheme.heroGreen,
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Waiting for PIN... ${_secondsRemaining}s',
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppTheme.onLightMuted,
+            ),
+          ),
         ],
       ),
     );
@@ -202,7 +451,7 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
           ),
           SizedBox(height: 6),
           Text(
-            'M-Pesa payments require an internet connection. Your data is safe — reconnect when you have a signal, or use an activation code instead.',
+            'M-Pesa payments require an internet connection. Your data is safe — reconnect when you have a signal.',
             style: TextStyle(fontSize: 12, height: 1.4),
           ),
         ],
@@ -211,18 +460,22 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
   }
 
   Widget _statusRow(IconData icon, Color color, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(text, style: TextStyle(fontSize: 13, color: color)),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

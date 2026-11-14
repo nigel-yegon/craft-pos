@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:craft_pos/core/models/subscription_plan.dart';
 import 'package:craft_pos/core/providers/database_provider.dart';
-import 'package:craft_pos/core/providers/subscription_provider.dart';
-import 'package:craft_pos/core/services/subscription_service.dart';
 import 'package:craft_pos/core/theme/app_theme.dart';
+import 'package:craft_pos/core/services/subscription_service.dart';
 
+/// Lets the user redeem an activation code instead of paying via M-Pesa.
 class ActivationCodeSection extends ConsumerStatefulWidget {
   const ActivationCodeSection({super.key});
 
@@ -17,176 +17,186 @@ class ActivationCodeSection extends ConsumerStatefulWidget {
 
 class _ActivationCodeSectionState
     extends ConsumerState<ActivationCodeSection> {
-  final _codeController = TextEditingController();
-  bool _isVerifying = false;
+  final _controller = TextEditingController();
+  bool _submitting = false;
+  String? _error;
 
   @override
   void dispose() {
-    _codeController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _verifyCode() async {
-    final code = _codeController.text.trim().toUpperCase();
-    if (code.isEmpty) {
-      _snack('Please enter an activation code');
+  static final _codePattern =
+      RegExp(r'^[A-Z0-9]{3,8}(-[A-Z0-9]{3,8}){0,2}$');
+
+  Future<void> _redeem() async {
+    final raw = _controller.text.trim().toUpperCase();
+    if (!_codePattern.hasMatch(raw)) {
+      setState(() => _error = 'Invalid code format.');
       return;
     }
 
-    setState(() => _isVerifying = true);
-    await Future.delayed(const Duration(seconds: 1));
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
 
-    if (!mounted) return;
+    try {
+      final match = _lookupCode(raw);
+      if (match == null) {
+        if (!mounted) return;
+        setState(() {
+          _submitting = false;
+          _error = 'That code is not valid or has already been used.';
+        });
+        return;
+      }
 
-    SubscriptionPlan? plan;
-    if (code.startsWith('CRFT-YR')) {
-      plan = SubscriptionPlan.byId('yearly');
-    } else if (code.startsWith('CRFT-MO')) {
-      plan = SubscriptionPlan.byId('monthly');
-    } else if (code.startsWith('CRFT-WK')) {
-      plan = SubscriptionPlan.byId('weekly');
-    } else if (code.startsWith('CRFT-')) {
-      plan = SubscriptionPlan.byId('monthly');
-    }
+      final service = SubscriptionService(ref.read(databaseProvider));
+      await service.activateExternal(plan: match.plan, source: 'code');
 
-    if (plan == null) {
-      setState(() => _isVerifying = false);
-      _snack('Invalid code. Please check and try again.', error: true);
-      return;
-    }
-
-    final db = ref.read(databaseProvider);
-    await SubscriptionService(db).activate(plan: plan.id, source: 'code');
-    if (!mounted) return;
-    invalidateSubscription(ref);
-    _codeController.clear();
-    setState(() => _isVerifying = false);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.heroGreen,
-        shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle, color: AppTheme.brightGreen),
-            SizedBox(width: 8),
-            Text('Activated!', style: TextStyle(color: Colors.white)),
-          ],
+      if (!mounted) return;
+      _controller.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Activation code redeemed. Enjoy your plan!'),
+          backgroundColor: AppTheme.heroGreen,
         ),
-        content: Text(
-          'Your ${plan!.title} subscription is now active.',
-          style: const TextStyle(color: AppTheme.onHeroSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Done',
-                style: TextStyle(color: AppTheme.brightGreen)),
-          ),
-        ],
-      ),
-    );
+      );
+      setState(() => _submitting = false);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = 'Could not redeem code: $e';
+      });
+    }
   }
 
-  void _snack(String message, {bool error = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: error ? AppTheme.burntOrange : AppTheme.heroGreen,
-      ),
-    );
+  // ⚠️ Placeholder — replace with a DB/API lookup before shipping.
+  ({String plan})? _lookupCode(String code) {
+    const codes = <String, String>{
+      'FREE-WEEK-2025': 'weekly',
+      'WELCOME-MONTH': 'monthly',
+      'YEAR-FREE-PROMO': 'yearly',
+    };
+    final plan = codes[code];
+    return plan == null ? null : (plan: plan);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Row(
-          children: [
-            Expanded(child: Divider(color: Color(0xFFE8F7EE))),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                'OR',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.onLightMuted,
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppTheme.inkBlack.withValues(alpha: 0.06),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: AppTheme.softMint,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.confirmation_number_outlined,
+                  size: 18,
+                  color: AppTheme.heroGreen,
                 ),
               ),
-            ),
-            Expanded(child: Divider(color: Color(0xFFE8F7EE))),
-          ],
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Already have a code?',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.inkBlack,
-          ),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'If you paid via M-Pesa or bought an activation card, enter the code below. Works offline.',
-          style: TextStyle(
-            fontSize: 13,
-            color: AppTheme.onLightMuted,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _codeController,
-                textCapitalization: TextCapitalization.characters,
-                decoration: InputDecoration(
-                  hintText: 'CRFT-XXXX-XXXX',
-                  filled: true,
-                  fillColor: AppTheme.softMint,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 16),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Have an activation code?',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.inkBlack,
                   ),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Enter your code below to activate your plan without paying '
+            'via M-Pesa.',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppTheme.inkBlack.withValues(alpha: 0.6),
+              height: 1.4,
             ),
-            const SizedBox(width: 12),
-            SizedBox(
-              height: 54,
-              child: ElevatedButton(
-                onPressed: _isVerifying ? null : _verifyCode,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.inkBlack,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  enabled: !_submitting,
+                  textCapitalization: TextCapitalization.characters,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9\-]')),
+                  ],
+                  decoration: InputDecoration(
+                    hintText: 'XXXX-XXXX',
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(999),
+                      borderSide: BorderSide.none,
+                    ),
+                    errorText: _error,
                   ),
+                  onSubmitted: (_) => _redeem(),
                 ),
-                child: _isVerifying
-                    ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                )
-                    : const Text('Verify',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
               ),
-            ),
-          ],
-        ),
-      ],
+              const SizedBox(width: 12),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _submitting ? null : _redeem,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.heroGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  child: _submitting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Redeem',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
