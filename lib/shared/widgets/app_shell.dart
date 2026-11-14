@@ -18,8 +18,8 @@ class _AppShellState extends State<AppShell> {
   static const _tabs = [
     ('/dashboard', Icons.home_outlined, Icons.home, 'Home'),
     ('/products', Icons.storefront_outlined, Icons.storefront, 'Products'),
-    ('/inventory', Icons.inventory_2_outlined, Icons.inventory_2, 'Stock'),
     ('/sales', Icons.shopping_cart_outlined, Icons.shopping_cart, 'Sales'),
+    ('/inventory', Icons.inventory_2_outlined, Icons.inventory_2, 'Stock'),
     ('/reports', Icons.bar_chart_outlined, Icons.bar_chart, 'Reports'),
   ];
 
@@ -30,17 +30,13 @@ class _AppShellState extends State<AppShell> {
     return 0;
   }
 
-  // ⭐ Listen for scroll direction to hide/show nav
   bool _handleScrollNotification(ScrollNotification notification) {
     if (notification is ScrollUpdateNotification) {
       final currentOffset = notification.metrics.pixels;
 
-      // Determine scroll direction
       if (currentOffset > _lastScrollOffset && currentOffset > 50) {
-        // Scrolling Down -> Hide
         if (_isNavVisible) setState(() => _isNavVisible = false);
       } else if (currentOffset < _lastScrollOffset) {
-        // Scrolling Up -> Show
         if (!_isNavVisible) setState(() => _isNavVisible = true);
       }
 
@@ -54,98 +50,126 @@ class _AppShellState extends State<AppShell> {
     final location = GoRouterState.of(context).uri.path;
     final currentIndex = _indexForLocation(location);
 
+    // ⭐ Height reserved for the floating pill + its gradient strip.
+    //    Any FloatingActionButton or `bottom:` offset inside a screen that
+    //    reads MediaQuery.padding.bottom will now sit above the nav pill.
+    final mediaQuery = MediaQuery.of(context);
+    final navReservedHeight = 100.0 + mediaQuery.padding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.white,
-      // ⭐ Ensure body doesn't flow behind nav
+      // Let content scroll behind the floating pill.
       extendBody: false,
-      body: NotificationListener<ScrollNotification>(
-        onNotification: _handleScrollNotification,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 260),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          child: KeyedSubtree(
-            key: ValueKey(location),
-            child: widget.child,
+      body: MediaQuery(
+        // Override the child's MediaQuery so its bottom padding reflects
+        // the floating pill. FABs, `bottom:` offsets, and SafeArea widgets
+        // inside any screen automatically clear the nav — no per-screen
+        // `bottom: 100` patches needed.
+        data: mediaQuery.copyWith(
+          padding: mediaQuery.padding.copyWith(
+            bottom: navReservedHeight,
+          ),
+        ),
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _handleScrollNotification,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: KeyedSubtree(
+              key: ValueKey(location),
+              child: widget.child,
+            ),
           ),
         ),
       ),
-
-      // ⭐ Animate the Nav bar visibility
+      // Floating pill inside a soft green gradient — no white band.
       bottomNavigationBar: AnimatedSlide(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
-        offset: _isNavVisible ? Offset.zero : const Offset(0, 1.5), // Slide down off screen
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-              decoration: BoxDecoration(
-                // ⭐ Solid forest green background
-                color: AppTheme.heroGreen,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  width: 0.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.heroGreen.withValues(alpha: 0.25),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: List.generate(_tabs.length, (i) {
-                  final selected = i == currentIndex;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => context.go(_tabs[i].$1),
-                      behavior: HitTestBehavior.opaque,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                          // ⭐ Bright green selected pill
-                          color: selected
-                              ? AppTheme.brightGreen
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              selected ? _tabs[i].$3 : _tabs[i].$2,
-                              size: 18,
-                              color: selected
-                                  ? AppTheme.inkBlack
-                                  : Colors.white.withValues(alpha: 0.55),
-                            ),
-                            if (selected) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                _tabs[i].$4,
-                                style: const TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.inkBlack,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
+        offset: _isNavVisible ? Offset.zero : const Offset(0, 1.5),
+        child: _buildFloatingNav(currentIndex),
+      ),
+    );
+  }
+
+  Widget _buildFloatingNav(int currentIndex) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final bottomGap = bottomInset > 0 ? bottomInset + 4 : 18.0;
+
+    return Container(
+      // ⭐ Green gradient strip behind the pill — hides the white scaffold
+      //    body that would otherwise bleed through the pill's shadow.
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.transparent,
+            AppTheme.heroGreen.withValues(alpha: 0.15),
+            AppTheme.heroGreen.withValues(alpha: 0.35),
+          ],
+          stops: const [0.0, 0.6, 1.0],
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, bottomGap),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppTheme.heroGreen,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.heroGreen.withValues(alpha: 0.32),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
             ),
-          ),
+          ],
+        ),
+        child: Row(
+          children: List.generate(_tabs.length, (i) {
+            final selected = i == currentIndex;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => context.go(_tabs[i].$1),
+                behavior: HitTestBehavior.opaque,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? AppTheme.brightGreen
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        selected ? _tabs[i].$3 : _tabs[i].$2,
+                        size: 24,
+                        color: selected
+                            ? AppTheme.inkBlack
+                            : Colors.white.withValues(alpha: 0.9),
+                      ),
+                      if (selected) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          _tabs[i].$4,
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.inkBlack,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
         ),
       ),
     );

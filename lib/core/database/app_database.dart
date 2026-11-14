@@ -19,6 +19,7 @@ part 'app_database.g.dart';
     RecurringExpenses,
     Subscriptions,
     PaymentAttempts,
+    Notifications,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -34,7 +35,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 9;   // ⭐ was 8
+  int get schemaVersion => 10;   // ⭐ was 8
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -71,10 +72,14 @@ class AppDatabase extends _$AppDatabase {
               WHERE total_amount_minor > 0
             ''');
       }
+      if (from < 10) {
+        await m.createTable(notifications);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
+
   );
 
   // ═══ Dashboard Metrics ═══

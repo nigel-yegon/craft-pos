@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import 'core/database/app_database.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -26,8 +27,8 @@ class _AppState extends State<App> {
   @override
   void initState() {
     super.initState();
-    // 1. Initialize the router asynchronously.
-    // It will load the database, find the businessId, and build the routes.
+    // Kick off router construction immediately so it's ready by the time
+    // the splash animation finishes. Runs in parallel with the splash.
     _routerFuture = createAppRouter(
       widget.database,
       initialLocation: widget.initialRoute,
@@ -35,37 +36,32 @@ class _AppState extends State<App> {
   }
 
   void _onSplashComplete() {
-    setState(() {
-      _showSplash = false;
-    });
+    if (mounted) setState(() => _showSplash = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    // ═══ PHASE 1: SPLASH SCREEN ═══
-    // We keep the user on this screen while the router is loading.
+    // ═══ PHASE 1 — Splash ═══
     if (_showSplash) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        home: SplashScreens(
-          onComplete: _onSplashComplete,
-        ),
+        home: SplashScreens(onComplete: _onSplashComplete),
       );
     }
 
-    // ═══ PHASE 2: MAIN APP ═══
-    // By now, the splash screen has finished its animation.
-    // We resolve the router future and launch the app.
+    // ═══ PHASE 2 — Main app ═══
+    // The router future was started in initState, so by the time we get
+    // here it's almost always resolved. If not (slow device / DB restore),
+    // the brief spinner below covers the last frame or two.
     return FutureBuilder<GoRouter>(
       future: _routerFuture,
       builder: (context, snapshot) {
-        // If the router is somehow still loading (e.g., slow device),
-        // show a simple white screen briefly before the app loads.
         if (!snapshot.hasData) {
-          return const MaterialApp(
+          return MaterialApp(
             debugShowCheckedModeBanner: false,
-            home: Scaffold(
+            theme: AppTheme.lightTheme,
+            home: const Scaffold(
               backgroundColor: Colors.white,
               body: Center(
                 child: CircularProgressIndicator(color: AppTheme.heroGreen),
@@ -74,7 +70,6 @@ class _AppState extends State<App> {
           );
         }
 
-        // Router is ready, launch the main application
         return MaterialApp.router(
           title: 'Craft Business',
           debugShowCheckedModeBanner: false,

@@ -1,51 +1,23 @@
-import 'package:flutter/material.dart';
+// lib/features/settings/notifications_screen.dart
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/material.dart' hide Notification;
+
+import '../../core/database/app_database.dart';
+import '../../core/providers/notifications_provider.dart';
 import '../../core/theme/app_theme.dart';
 
-class NotificationsScreen extends StatefulWidget {
+class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
 
   @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(notificationsStreamProvider);
+    final sync = ref.read(notificationsSyncProvider);
+    final markAll = ref.read(markAllNotificationsReadProvider);
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
-  // Dummy data for the MVP.
-  // In production, this would be a Stream from a Notifications table in SQLite.
-  final List<Map<String, dynamic>> _notifications = [
-    {
-      'type': 'subscription',
-      'title': 'Subscription Expiring Soon',
-      'body': 'Your Monthly plan will expire in 3 days. Renew now to avoid interruptions.',
-      'time': DateTime.now().subtract(const Duration(hours: 2)),
-      'isRead': false,
-    },
-    {
-      'type': 'code',
-      'title': 'Activation Code',
-      'body': 'Thank you for your payment! Your activation code is: CRFT-X7Y2-9B1P',
-      'time': DateTime.now().subtract(const Duration(days: 1)),
-      'isRead': false,
-    },
-    {
-      'type': 'alert',
-      'title': 'Low Stock Alert',
-      'body': 'Coca-Cola 500ml and 2 other items are running low on stock.',
-      'time': DateTime.now().subtract(const Duration(days: 2)),
-      'isRead': true,
-    },
-    {
-      'type': 'system',
-      'title': 'Backup Successful',
-      'body': 'Your local database backup was generated successfully.',
-      'time': DateTime.now().subtract(const Duration(days: 3)),
-      'isRead': true,
-    },
-  ];
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -57,15 +29,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           onPressed: () => context.pop(),
         ),
         actions: [
-          // Mark all as read button
           TextButton(
-            onPressed: () {
-              setState(() {
-                for (var n in _notifications) {
-                  n['isRead'] = true;
-                }
-              });
-            },
+            onPressed: () => markAll(),
             child: const Text(
               'Mark all read',
               style: TextStyle(
@@ -77,66 +42,83 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ],
       ),
-      body: _notifications.isEmpty
-          ? _buildEmptyState()
-          : ListView.separated(
-        padding: const EdgeInsets.all(24),
-        itemCount: _notifications.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final notification = _notifications[index];
-          return _buildNotificationCard(notification);
-        },
+      body: RefreshIndicator(
+        onRefresh: sync,
+        color: AppTheme.heroGreen,
+        child: async.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppTheme.heroGreen),
+          ),
+          error: (e, _) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Failed to load notifications: $e',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppTheme.onLightMuted),
+              ),
+            ),
+          ),
+          data: (items) {
+            if (items.isEmpty) return _buildEmptyState(context);
+            // ...
+            return ListView.separated(
+              padding: const EdgeInsets.all(24),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) =>
+                  _buildCard(context, ref, items[index]),
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildNotificationCard(Map<String, dynamic> notification) {
-    final type = notification['type'] as String;
-    final isRead = notification['isRead'] as bool;
-
-    // Determine icon and color based on type
-    IconData icon;
-    Color iconColor;
-    Color bgColor;
-
-    switch (type) {
-      case 'subscription':
-        icon = Icons.card_membership;
-        iconColor = AppTheme.midnightViolet;
-        bgColor = AppTheme.midnightViolet.withValues(alpha: 0.08);
-        break;
-      case 'code':
-        icon = Icons.vpn_key;
-        iconColor = AppTheme.brightGreen;
-        bgColor = AppTheme.softMint;
-        break;
-      case 'alert':
-        icon = Icons.warning_amber_rounded;
-        iconColor = AppTheme.burntOrange;
-        bgColor = AppTheme.burntOrange.withValues(alpha: 0.08);
-        break;
-      default: // system
-        icon = Icons.info_outline;
-        iconColor = AppTheme.heroGreen;
-        bgColor = AppTheme.softMint;
-    }
+  Widget _buildCard(BuildContext context, WidgetRef ref, Notification n) {
+    final markOne = ref.read(markNotificationReadProvider);
+    final (IconData icon, Color iconColor, Color bgColor) = switch (n.type) {
+      'subscription' => (
+      Icons.card_membership,
+      AppTheme.midnightViolet,
+      AppTheme.midnightViolet.withValues(alpha: 0.08),
+      ),
+      'code' => (
+      Icons.vpn_key,
+      AppTheme.brightGreen,
+      AppTheme.softMint,
+      ),
+      'alert' => (
+      Icons.warning_amber_rounded,
+      AppTheme.burntOrange,
+      AppTheme.burntOrange.withValues(alpha: 0.08),
+      ),
+      'backup' => (
+      Icons.backup_outlined,
+      AppTheme.heroGreen,
+      AppTheme.softMint,
+      ),
+      _ => (
+      Icons.info_outline,
+      AppTheme.heroGreen,
+      AppTheme.softMint,
+      ),
+    };
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          notification['isRead'] = true;
-        });
-        // Optional: Route to specific screens based on type
-        // if (type == 'subscription') context.push('/settings/subscription');
+      onTap: () async {
+        await markOne(n.id);
+        if (n.actionRoute != null && context.mounted) {
+          context.push(n.actionRoute!);
+        }
       },
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isRead ? Colors.white : bgColor,
+          color: n.isRead ? Colors.white : bgColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isRead
+            color: n.isRead
                 ? AppTheme.inkBlack.withValues(alpha: 0.06)
                 : iconColor.withValues(alpha: 0.2),
             width: 1,
@@ -148,7 +130,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isRead ? AppTheme.softMint : Colors.white,
+                color: n.isRead ? AppTheme.softMint : Colors.white,
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: iconColor, size: 20),
@@ -161,15 +143,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        notification['title'],
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: isRead ? FontWeight.w600 : FontWeight.w700,
-                          color: AppTheme.inkBlack,
+                      Expanded(
+                        child: Text(
+                          n.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: n.isRead
+                                ? FontWeight.w600
+                                : FontWeight.w700,
+                            color: AppTheme.inkBlack,
+                          ),
                         ),
                       ),
-                      if (!isRead)
+                      if (!n.isRead)
                         Container(
                           width: 8,
                           height: 8,
@@ -182,8 +170,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    notification['body'],
-                    style: TextStyle(
+                    n.body,
+                    style: const TextStyle(
                       fontSize: 13,
                       color: AppTheme.onLightSecondary,
                       height: 1.4,
@@ -191,7 +179,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _formatTime(notification['time']),
+                    _formatTime(n.publishedAt),
                     style: const TextStyle(
                       fontSize: 11,
                       color: AppTheme.onLightMuted,
@@ -207,58 +195,60 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: AppTheme.softMint,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.notifications_off_outlined,
-              size: 48,
-              color: AppTheme.heroGreen,
-            ),
+  Widget _buildEmptyState(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children:  [
+        SizedBox(height: MediaQuery.of(context).padding.top + 120),
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  color: AppTheme.softMint,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.notifications_off_outlined,
+                  size: 48,
+                  color: AppTheme.heroGreen,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'No notifications yet',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.inkBlack,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'We will notify you about subscriptions,\nalerts, and updates here.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.onLightMuted,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          const Text(
-            'No notifications yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.inkBlack,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'We will notify you about subscriptions,\nalerts, and updates here.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: AppTheme.onLightMuted,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   String _formatTime(DateTime date) {
     final now = DateTime.now();
-    final difference = now.difference(date);
+    final diff = now.difference(date);
 
-    if (difference.inMinutes < 60) {
-      return '${difference.inMinutes} mins ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours} hours ago';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
-    } else {
-      return DateFormat('dd MMM').format(date);
-    }
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} mins ago';
+    if (diff.inHours < 24) return '${diff.inHours} hours ago';
+    if (diff.inDays < 7) return '${diff.inDays} days ago';
+    return DateFormat('dd MMM').format(date);
   }
 }

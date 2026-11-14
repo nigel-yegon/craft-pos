@@ -200,3 +200,33 @@ class PaymentAttempts extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get resolvedAt => dateTime().nullable()();
 }
+class Notifications extends Table {
+  /// Stable server-side ID (UUID or string from the admin panel).
+  TextColumn get id => text()();
+
+  TextColumn get businessId =>
+      text().references(Businesses, #id, onDelete: KeyAction.cascade)();
+
+  /// 'subscription' | 'code' | 'alert' | 'system' | 'backup' | 'promo'
+  TextColumn get type => text()();
+  TextColumn get title => text()();
+  TextColumn get body => text()();
+
+  /// Optional deep-link target, e.g. '/settings/subscription'.
+  TextColumn get actionRoute => text().nullable()();
+
+  /// Free-form payload for type-specific rendering (e.g. activation code).
+  TextColumn get payloadJson => text().nullable()();
+
+  /// When the server published it.
+  DateTimeColumn get publishedAt => dateTime()();
+
+  /// Local read state — never sent back to the server.
+  BoolColumn get isRead => boolean().withDefault(const Constant(false))();
+
+  /// Local cache timestamp (when we last synced this row).
+  DateTimeColumn get fetchedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

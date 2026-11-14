@@ -9,6 +9,7 @@ import '../../core/database/app_database.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/business_provider.dart';
 import '../../core/providers/database_provider.dart';
+import '../../core/providers/notifications_provider.dart';
 import '../../core/theme/app_theme.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -31,15 +32,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _todaySales = 0;
   int _todayProfit = 0;
   int _todayTransactions = 0;
- // int _productsSold = 0;
   int _lowStockCount = 0;
   int _todayExpenses = 0;
 
-  // ⭐ Owner name shown under the greeting.
+  // Owner name shown under the greeting.
   String _ownerName = '';
 
-  // Mock unread notification count
-  int _unreadNotifications = 3;
+  // ⭐ Branding slider state.
+  int _brandingSlideIndex = 0;
 
   final _currencyFormatter = NumberFormat.currency(
     locale: 'en_KE',
@@ -51,11 +51,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void initState() {
     super.initState();
     _loadDashboardData();
-    _loadOwnerName(); // ⭐ new
+    _loadOwnerName();
+    _syncNotifications();
   }
 
-  // ⭐ Load owner name: prefer the logged-in user, fall back to the
-  //    first active owner in the Users table.
+  Future<void> _syncNotifications() async {
+    try {
+      await ref.read(notificationsSyncProvider)();
+    } catch (e) {
+      debugPrint('Notifications sync failed: $e');
+    }
+  }
+
   Future<void> _loadOwnerName() async {
     final loggedIn = widget.authProvider.currentUser;
     if (loggedIn != null && loggedIn.name.trim().isNotEmpty) {
@@ -85,7 +92,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final start = DateTime(now.year, now.month, now.day);
     final end = start.add(const Duration(days: 1));
 
-    // 1. Sales
     final salesQuery = db.select(db.sales)
       ..where((s) => s.businessId.equals(widget.businessId))
       ..where((s) => s.status.equals('completed'))
@@ -96,7 +102,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final todaySales = sales.fold(0, (sum, s) => sum + s.totalAmountMinor);
     final todayTransactions = sales.length;
 
-    // 2. Profit
     final profitQuery = db.customSelect(
       '''
       SELECT SUM((si.unit_price_minor - si.cost_price_minor) * (si.quantity_milli / 1000.0)) as profit
@@ -115,26 +120,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final profitResult = await profitQuery.getSingleOrNull();
     final todayProfit = (profitResult?.read<double?>('profit') ?? 0).round();
 
-    // 3. Products Sold
-    final stockQuery = db.customSelect(
-      '''
-      SELECT SUM(ABS(quantity_milli)) as total_sold
-      FROM stock_movements
-      WHERE business_id = ? AND type = 'sale'
-      AND created_at >= ? AND created_at < ?
-      ''',
-      variables: [
-        Variable.withString(widget.businessId),
-        Variable.withDateTime(start),
-        Variable.withDateTime(end),
-      ],
-      readsFrom: {db.stockMovements},
-    );
-    final stockResult = await stockQuery.getSingleOrNull();
-    final productsSold =
-    ((stockResult?.read<int?>('total_sold') ?? 0) ~/ 1000);
-
-    // 4. Expenses
     final expenseQuery = db.customSelect(
       '''
       SELECT SUM(paid_amount_minor) as total
@@ -152,7 +137,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final expenseResult = await expenseQuery.getSingleOrNull();
     final todayExpenses = expenseResult?.read<int?>('total') ?? 0;
 
-    // 5. Low stock
     final lowStock = await db.getLowStockCount(widget.businessId);
 
     if (!mounted) return;
@@ -160,10 +144,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       _todaySales = todaySales;
       _todayProfit = todayProfit;
       _todayTransactions = todayTransactions;
-     // _productsSold = productsSold;
       _todayExpenses = todayExpenses;
       _lowStockCount = lowStock;
     });
+
+    _syncNotifications();
   }
 
   String _greeting() {
@@ -173,8 +158,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return 'Good evening';
   }
 
-  // ⭐ Logout: confirm → sign out → route to login.
-  //    AuthProvider.logout() is synchronous (void), so NO await.
   Future<void> _confirmLogout(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -198,10 +181,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     if (confirmed != true) return;
 
-    widget.authProvider.logout(); // ✅ synchronous — no await
+    widget.authProvider.logout();
     if (!context.mounted) return;
-
-    context.go('/login'); // ✅ statement, not a value
+    context.go('/login');
   }
 
   @override
@@ -250,6 +232,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // ─── Header row ──────────────────────────────
                       Row(
                         children: [
                           GestureDetector(
@@ -295,12 +278,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            // ⭐ Shop name → Greeting → Owner name
                             child: Column(
                               crossAxisAlignment:
                               CrossAxisAlignment.start,
                               children: [
-                                // 1. Shop name
                                 StreamBuilder<BusinessesData?>(
                                   stream: widget
                                       .businessProvider.businessStream,
@@ -319,95 +300,89 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   },
                                 ),
                                 const SizedBox(height: 2),
-                                // 2. Greeting
                                 Text(
                                   '${_greeting()}, ${_ownerName.isNotEmpty ? _ownerName : ''}',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.white.withValues(alpha: 0.85),
+                                    color: Colors.white
+                                        .withValues(alpha: 0.85),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                                // 3. Owner name
-                                // if (_ownerName.isNotEmpty) ...[
-                                //   const SizedBox(height: 2),
-                                //   Text(
-                                //     _ownerName,
-                                //     maxLines: 1,
-                                //     overflow: TextOverflow.ellipsis,
-                                //     style: TextStyle(
-                                //       fontSize: 12,
-                                //       color: Colors.white
-                                //           .withValues(alpha: 0.85),
-                                //       fontWeight: FontWeight.w500,
-                                //       letterSpacing: -0.1,
-                                //     ),
-                                //   ),
-                                // ],
                               ],
                             ),
                           ),
 
-                          // Notification icon with badge
-                          GestureDetector(
-                            onTap: () {
-                              setState(() => _unreadNotifications = 0);
-                              context.push('/settings/notifications');
-                            },
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                Container(
-                                  width: 38,
-                                  height: 38,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.white
-                                        .withValues(alpha: 0.06),
-                                    border: Border.all(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.15),
-                                      width: 0.5,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.notifications_none_outlined,
-                                    size: 18,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                if (_unreadNotifications > 0)
-                                  Positioned(
-                                    top: -2,
-                                    right: -2,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: AppTheme.burntOrange,
+                          // Live notification bell
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final unread = ref
+                                  .watch(
+                                  unreadNotificationsCountProvider)
+                                  .value ??
+                                  0;
+                              return GestureDetector(
+                                onTap: () => context
+                                    .push('/settings/notifications'),
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Container(
+                                      width: 38,
+                                      height: 38,
+                                      decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                      ),
-                                      constraints: const BoxConstraints(
-                                        minWidth: 16,
-                                        minHeight: 16,
-                                      ),
-                                      child: Text(
-                                        '$_unreadNotifications',
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w700,
-                                          height: 1,
+                                        color: Colors.white
+                                            .withValues(alpha: 0.06),
+                                        border: Border.all(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.15),
+                                          width: 0.5,
                                         ),
                                       ),
+                                      child: const Icon(
+                                        Icons.notifications_none_outlined,
+                                        size: 18,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                  ),
-                              ],
-                            ),
+                                    if (unread > 0)
+                                      Positioned(
+                                        top: -2,
+                                        right: -2,
+                                        child: Container(
+                                          padding:
+                                          const EdgeInsets.all(4),
+                                          decoration: const BoxDecoration(
+                                            color: AppTheme.brightGreen,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          constraints:
+                                          const BoxConstraints(
+                                            minWidth: 16,
+                                            minHeight: 16,
+                                          ),
+                                          child: Text(
+                                            unread > 99
+                                                ? '99+'
+                                                : '$unread',
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w700,
+                                              height: 1,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
                           const SizedBox(width: 8),
 
-                          // Logout icon
                           GestureDetector(
                             onTap: () => _confirmLogout(context),
                             child: Container(
@@ -430,7 +405,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ],
                       ),
 
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 40),
 
                       Text(
                         'Total balance',
@@ -479,9 +454,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             onTap: () => context.push('/reports/stock'),
                           ),
                           const SizedBox(width: 10),
-
-                          // Held Orders → /sales with flag so SalesScreen
-                          // is on the stack when a resume pops back.
                           _heroPill(
                             label: 'Held Orders',
                             icon: Icons.pause_circle_outline,
@@ -492,8 +464,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                           ),
                           const SizedBox(width: 10),
-
-                          // Search icon
                           _heroIconButton(
                             icon: Icons.search,
                             onTap: () => _openUniversalSearch(context),
@@ -534,61 +504,87 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        GridView.count(
-                          crossAxisCount: 4,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          mainAxisSpacing: 14,
-                          crossAxisSpacing: 10,
-                          childAspectRatio: 0.9,
-                          children: [
-                            _categoryItem(
-                              icon: Icons.shopping_cart_outlined,
-                              label: 'Sale',
-                              isHighlighted: true,
-                              onTap: () => context.go('/sales'),
-                            ),
-                            _categoryItem(
-                              icon: Icons.inventory_2_outlined,
-                              label: 'Stock',
-                              onTap: () => context.go('/inventory'),
-                            ),
-                            _categoryItem(
-                              icon: Icons.storefront_outlined,
-                              label: 'Products',
-                              onTap: () => context.go('/products'),
-                            ),
-                            _categoryItem(
-                              icon: Icons.bar_chart_rounded,
-                              label: 'Reports',
-                              onTap: () => context.go('/reports'),
-                            ),
-                            _categoryItem(
-                              icon: Icons.receipt_long_outlined,
-                              label: 'Transactions',
-                              onTap: () => context.go('/reports'),
-                            ),
-                            _categoryItem(
-                              icon: Icons.attach_money_outlined,
-                              label: 'Profit',
-                              onTap: () => context.go('/reports'),
-                            ),
-                            _categoryItem(
-                              icon: Icons.payments_outlined,
-                              label: 'Expenses',
-                              onTap: () => context.push('/settings'),
-                            ),
-                            _categoryItem(
-                              icon: Icons.settings_outlined,
-                              label: 'Settings',
-                              onTap: () => context.push('/settings'),
-                            ),
-                          ],
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            const crossAxisSpacing = 10.0;
+                            const mainAxisSpacing = 14.0;
+                            const itemCount = 8;
+
+                            final isWide = constraints.maxWidth >= 700;
+                            final crossAxisCount = isWide ? 8 : 4;
+
+                            final tileWidth =
+                                (constraints.maxWidth -
+                                    crossAxisSpacing *
+                                        (crossAxisCount - 1)) /
+                                    crossAxisCount;
+
+                            final items = <Widget>[
+                              _categoryItem(
+                                icon: Icons.shopping_cart_outlined,
+                                label: 'Sale',
+                                isHighlighted: true,
+                                onTap: () => context.go('/sales'),
+                              ),
+                              _categoryItem(
+                                icon: Icons.inventory_2_outlined,
+                                label: 'Stock',
+                                onTap: () => context.go('/inventory'),
+                              ),
+                              _categoryItem(
+                                icon: Icons.storefront_outlined,
+                                label: 'Products',
+                                onTap: () => context.go('/products'),
+                              ),
+                              _categoryItem(
+                                icon: Icons.bar_chart_rounded,
+                                label: 'Reports',
+                                onTap: () => context.go('/reports'),
+                              ),
+                              _categoryItem(
+                                icon: Icons.receipt_long_outlined,
+                                label: 'Transactions',
+                                onTap: () => context.go('/reports'),
+                              ),
+                              _categoryItem(
+                                icon: Icons.attach_money_outlined,
+                                label: 'Profit',
+                                onTap: () => context.go('/reports'),
+                              ),
+                              _categoryItem(
+                                icon: Icons.payments_outlined,
+                                label: 'Expenses',
+                                onTap: () => context.push('/settings'),
+                              ),
+                              _categoryItem(
+                                icon: Icons.settings_outlined,
+                                label: 'Settings',
+                                onTap: () => context.push('/settings'),
+                              ),
+                            ];
+
+                            return GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              padding: EdgeInsets.zero,
+                              itemCount: itemCount,
+                              gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                crossAxisSpacing: crossAxisSpacing,
+                                mainAxisSpacing: mainAxisSpacing,
+                                mainAxisExtent: tileWidth + 24,
+                              ),
+                              itemBuilder: (context, index) => items[index],
+                            );
+                          },
                         ),
                       ],
                     ),
                   ),
                 ),
+
+
 
                 // ═══ METRICS GRID ═══
                 Padding(
@@ -668,6 +664,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ],
                   ),
                 ),
+             //   _buildBrandingSlider(),
 
                 // ═══ LOW STOCK ═══
                 if (_lowStockCount > 0)
@@ -711,10 +708,150 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ),
                     ),
                   ),
+                // ⭐ Branding slider
               ],
+
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // ⭐ Branding slider — full-width gradient card with 3 slides.
+  Widget _buildBrandingSlider() {
+    const slides = [
+      (
+      icon: Icons.insights_outlined,
+      title: 'Track every shilling',
+      subtitle: 'Live sales, profit, and stock value — no spreadsheets.',
+      ),
+      (
+      icon: Icons.storefront_outlined,
+      title: 'Sell faster, anywhere',
+      subtitle: 'Cash, M-Pesa, or split payments — one tap.',
+      ),
+      (
+      icon: Icons.shield_outlined,
+      title: 'Built for Kenyan shops',
+      subtitle: 'Offline-first. Data stays on your device.',
+      ),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+      padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppTheme.forestDeep,
+            AppTheme.heroGreen,
+            AppTheme.brightGreen,
+          ],
+          stops: [0.0, 0.55, 1.0],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.forestDeep.withValues(alpha: 0.18),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 96,
+            child: PageView.builder(
+              itemCount: slides.length,
+              onPageChanged: (i) =>
+                  setState(() => _brandingSlideIndex = i),
+              itemBuilder: (context, i) {
+                final s = slides[i];
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Icon(s.icon, size: 20, color: Colors.white),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            s.title,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            s.subtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.75),
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(slides.length, (i) {
+              final selected = i == _brandingSlideIndex;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: selected ? 18 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Craft POS — ideas, integrated.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.3,
+              color: Colors.white.withValues(alpha: 0.6),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1017,8 +1154,8 @@ class _UniversalSearchDelegate extends SearchDelegate {
                     color: AppTheme.burntOrange.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(r.icon,
-                      color: AppTheme.burntOrange, size: 16),
+                  child:
+                  Icon(r.icon, color: AppTheme.burntOrange, size: 16),
                 ),
                 title: Text(
                   r.title,
@@ -1133,8 +1270,7 @@ class _UniversalSearchDelegate extends SearchDelegate {
         .get();
 
     for (final s in sales) {
-      final amount =
-          'KSh ${(s.totalAmountMinor / 100).toStringAsFixed(2)}';
+      final amount = 'KSh ${(s.totalAmountMinor / 100).toStringAsFixed(2)}';
       if (amount.toLowerCase().contains(term) ||
           s.paymentMethod?.toLowerCase().contains(term) == true) {
         results.add(_SearchResult(
