@@ -31,9 +31,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _todaySales = 0;
   int _todayProfit = 0;
   int _todayTransactions = 0;
-  int _productsSold = 0;
+ // int _productsSold = 0;
   int _lowStockCount = 0;
   int _todayExpenses = 0;
+
+  // ⭐ Owner name shown under the greeting.
+  String _ownerName = '';
 
   // Mock unread notification count
   int _unreadNotifications = 3;
@@ -48,6 +51,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void initState() {
     super.initState();
     _loadDashboardData();
+    _loadOwnerName(); // ⭐ new
+  }
+
+  // ⭐ Load owner name: prefer the logged-in user, fall back to the
+  //    first active owner in the Users table.
+  Future<void> _loadOwnerName() async {
+    final loggedIn = widget.authProvider.currentUser;
+    if (loggedIn != null && loggedIn.name.trim().isNotEmpty) {
+      if (mounted) {
+        setState(() => _ownerName = loggedIn.name.trim());
+      }
+      return;
+    }
+
+    final db = ref.read(databaseProvider);
+    final owner = await (db.select(db.users)
+      ..where((u) => u.businessId.equals(widget.businessId))
+      ..where((u) => u.role.equals('owner'))
+      ..where((u) => u.isActive.equals(true))
+      ..limit(1))
+        .getSingleOrNull();
+
+    if (owner != null && owner.name.trim().isNotEmpty && mounted) {
+      setState(() => _ownerName = owner.name.trim());
+    }
   }
 
   Future<void> _loadDashboardData() async {
@@ -132,7 +160,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       _todaySales = todaySales;
       _todayProfit = todayProfit;
       _todayTransactions = todayTransactions;
-      _productsSold = productsSold;
+     // _productsSold = productsSold;
       _todayExpenses = todayExpenses;
       _lowStockCount = lowStock;
     });
@@ -152,8 +180,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Log out?'),
-        content:
-        const Text('You will need to sign in again to access your shop.'),
+        content: const Text(
+            'You will need to sign in again to access your shop.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -233,16 +261,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 height: 40,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Colors.white.withValues(alpha: 0.1),
+                                  color:
+                                  Colors.white.withValues(alpha: 0.1),
                                   border: Border.all(
-                                    color:
-                                    Colors.white.withValues(alpha: 0.2),
+                                    color: Colors.white
+                                        .withValues(alpha: 0.2),
                                     width: 0.5,
                                   ),
                                 ),
                                 child: StreamBuilder<BusinessesData?>(
-                                  stream:
-                                  widget.businessProvider.businessStream,
+                                  stream: widget
+                                      .businessProvider.businessStream,
                                   builder: (context, snapshot) {
                                     final imagePath =
                                         snapshot.data?.imagePath;
@@ -266,26 +295,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
+                            // ⭐ Shop name → Greeting → Owner name
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                              CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  _greeting(),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color:
-                                    Colors.white.withValues(alpha: 0.6),
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
+                                // 1. Shop name
                                 StreamBuilder<BusinessesData?>(
-                                  stream:
-                                  widget.businessProvider.businessStream,
+                                  stream: widget
+                                      .businessProvider.businessStream,
                                   builder: (context, snapshot) {
                                     return Text(
                                       snapshot.data?.name ?? 'My Shop',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                        fontSize: 15,
+                                        fontSize: 20,
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600,
                                         letterSpacing: -0.2,
@@ -293,12 +318,37 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                     );
                                   },
                                 ),
+                                const SizedBox(height: 2),
+                                // 2. Greeting
+                                Text(
+                                  '${_greeting()}, ${_ownerName.isNotEmpty ? _ownerName : ''}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                // 3. Owner name
+                                // if (_ownerName.isNotEmpty) ...[
+                                //   const SizedBox(height: 2),
+                                //   Text(
+                                //     _ownerName,
+                                //     maxLines: 1,
+                                //     overflow: TextOverflow.ellipsis,
+                                //     style: TextStyle(
+                                //       fontSize: 12,
+                                //       color: Colors.white
+                                //           .withValues(alpha: 0.85),
+                                //       fontWeight: FontWeight.w500,
+                                //       letterSpacing: -0.1,
+                                //     ),
+                                //   ),
+                                // ],
                               ],
                             ),
                           ),
 
-                          // ⭐ Notification icon with badge
-                          //    (swapped with search — now in the top row)
+                          // Notification icon with badge
                           GestureDetector(
                             onTap: () {
                               setState(() => _unreadNotifications = 0);
@@ -312,8 +362,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   height: 38,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color:
-                                    Colors.white.withValues(alpha: 0.06),
+                                    color: Colors.white
+                                        .withValues(alpha: 0.06),
                                     border: Border.all(
                                       color: Colors.white
                                           .withValues(alpha: 0.15),
@@ -357,7 +407,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                           const SizedBox(width: 8),
 
-                          // ⭐ Logout icon
+                          // Logout icon
                           GestureDetector(
                             onTap: () => _confirmLogout(context),
                             child: Container(
@@ -365,10 +415,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               height: 38,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Colors.white.withValues(alpha: 0.06),
+                                color:
+                                Colors.white.withValues(alpha: 0.06),
                                 border: Border.all(
-                                  color:
-                                  Colors.white.withValues(alpha: 0.15),
+                                  color: Colors.white
+                                      .withValues(alpha: 0.15),
                                   width: 0.5,
                                 ),
                               ),
@@ -429,8 +480,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                           const SizedBox(width: 10),
 
-                          // ⭐ Held Orders → /sales with flag so SalesScreen
-                          //    is on the stack when a resume pops back.
+                          // Held Orders → /sales with flag so SalesScreen
+                          // is on the stack when a resume pops back.
                           _heroPill(
                             label: 'Held Orders',
                             icon: Icons.pause_circle_outline,
@@ -442,8 +493,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                           const SizedBox(width: 10),
 
-                          // ⭐ Search icon
-                          //    (swapped with notifications — now in pills row)
+                          // Search icon
                           _heroIconButton(
                             icon: Icons.search,
                             onTap: () => _openUniversalSearch(context),
@@ -570,8 +620,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           Expanded(
                             child: _metricCard(
                               title: 'Today\'s Sales',
-                              value:
-                              _currencyFormatter.format(_todaySales / 100),
+                              value: _currencyFormatter
+                                  .format(_todaySales / 100),
                               icon: Icons.shopping_bag_outlined,
                               bgColor: AppTheme.heroGreen,
                               onTap: () => context.go('/sales'),
@@ -632,8 +682,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           AppTheme.burntOrange.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(
-                            color:
-                            AppTheme.burntOrange.withValues(alpha: 0.35),
+                            color: AppTheme.burntOrange
+                                .withValues(alpha: 0.35),
                             width: 0.5,
                           ),
                         ),

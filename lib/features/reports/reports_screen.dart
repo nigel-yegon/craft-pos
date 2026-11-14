@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/database/app_database.dart';
@@ -26,6 +27,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
   List<Sale> _salesInRange = [];
   List<HeldOrder> _heldOrders = [];
   final Map<String, List<_SaleLine>> _lineCache = {};
+  final Map<String, List<SalePayment>> _paymentCache = {};
   bool _isLoading = true;
   DateTime _start = DateTime.now();
   DateTime _end = DateTime.now();
@@ -34,6 +36,10 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
 
   int _expensePaid = 0;
   int _expensePending = 0;
+
+  // ⭐ New — per-method totals for the selected period.
+  int _cashTotal = 0;
+  int _mpesaTotal = 0;
 
   @override
   void initState() {
@@ -67,6 +73,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
   Future<void> _loadData(int tabIndex) async {
     setState(() => _isLoading = true);
     _lineCache.clear();
+    _paymentCache.clear();
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -102,6 +109,10 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     final expenseSummary =
     await widget.provider.getExpenseSummary(_start, _end);
 
+    // ⭐ Load per-method totals for the period.
+    final paymentTotals =
+    await widget.provider.getPaymentMethodTotals(_start, _end);
+
     if (!mounted) return;
     setState(() {
       _summary = summary;
@@ -110,6 +121,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
       _heldOrders = held;
       _expensePaid = expenseSummary['paid'] ?? 0;
       _expensePending = expenseSummary['pending'] ?? 0;
+      _cashTotal = paymentTotals['cash'] ?? 0;
+      _mpesaTotal = paymentTotals['mpesa'] ?? 0;
       _isLoading = false;
     });
   }
@@ -134,18 +147,57 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     return lines;
   }
 
-  Future<void> _exportPdf() async {
-    await PdfHelper.generateSalesReport(
+  Future<List<SalePayment>> _loadSalePayments(String saleId) async {
+    if (_paymentCache.containsKey(saleId)) return _paymentCache[saleId]!;
+    final db = ref.read(databaseProvider);
+    final rows = await (db.select(db.salePayments)
+      ..where((t) => t.saleId.equals(saleId)))
+        .get();
+    _paymentCache[saleId] = rows;
+    return rows;
+  }
+
+  Future<void> _generateReport() async {
+    // Preload split-payment rows for the sales shown on screen (matches
+    // the "Transactions" section — up to 20 to keep the PDF concise).
+    final shown = _salesInRange.take(20).toList();
+    final breakdown = <String, List<SalePayment>>{};
+    for (final sale in shown) {
+      breakdown[sale.id] = await _loadSalePayments(sale.id);
+    }
+
+    await PdfHelper.generateReportsSummary(
       businessName: _businessName,
-      sales: _salesInRange,
-      summary: _summary,
+      periodLabel: _periodLabel,
       start: _start,
       end: _end,
+      summary: _summary,
+      trend: _trend,
+      sales: shown,
+      paymentBreakdown: breakdown,
+      cashTotalMinor: _cashTotal,
+      mpesaTotalMinor: _mpesaTotal,
+      expensePaidMinor: _expensePaid,
+      expensePendingMinor: _expensePending,
+      heldOrders: _heldOrders,
     );
   }
 
   String _formatKsh(int minorUnits) =>
       'KSh ${(minorUnits / 100).toStringAsFixed(2)}';
+
+  String _prettyMethod(String m) {
+    switch (m) {
+      case 'cash':
+        return 'Cash';
+      case 'mpesa':
+        return 'M-Pesa';
+      case 'cash+mpesa':
+        return 'Cash + M-Pesa';
+      default:
+        return m;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -156,12 +208,20 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          // ⭐ Modern PDF Export Button
+          // ⭐ Transactions shortcut (routes to the new screen).
+          IconButton(
+            tooltip: 'All transactions',
+            icon: const Icon(Icons.list_alt, color: AppTheme.heroGreen),
+            onPressed: _isLoading
+                ? null
+                : () => context.push('/reports/transactions'),
+          ),
           TextButton.icon(
-            onPressed: _isLoading ? null : _exportPdf,
-            icon: const Icon(Icons.picture_as_pdf, color: AppTheme.heroGreen, size: 20),
+            onPressed: _isLoading ? null : _generateReport,
+            icon: const Icon(Icons.picture_as_pdf,
+                color: AppTheme.heroGreen, size: 20),
             label: const Text(
-              'Export PDF',
+              'Generate Report',
               style: TextStyle(
                 color: AppTheme.heroGreen,
                 fontWeight: FontWeight.w600,
@@ -186,7 +246,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.heroGreen))
+          ? const Center(
+          child: CircularProgressIndicator(color: AppTheme.heroGreen))
           : RefreshIndicator(
         onRefresh: () => _loadData(_tabController.index),
         color: AppTheme.heroGreen,
@@ -213,7 +274,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                     'Sales',
                     _formatKsh(_summary['sales'] ?? 0),
                     const [AppTheme.heroGreen, AppTheme.midGreen],
-                    const CurrencyIcon(color: Colors.white, size: 20),
+                    const CurrencyIcon(
+                        color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 12),
                   _buildMetricCard(
@@ -236,12 +298,20 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                         size: 20, color: Colors.white),
                   ),
                   const SizedBox(width: 12),
-                  _buildMetricCard(
-                    'Transactions',
-                    '${_salesInRange.length}',
-                    const [AppTheme.midnightViolet, Color(0xFF2D1823)],
-                    const Icon(Icons.receipt_long,
-                        size: 20, color: Colors.white),
+                  // ⭐ Tappable — opens the all-transactions screen.
+                  GestureDetector(
+                    onTap: () =>
+                        context.push('/reports/transactions'),
+                    child: _buildMetricCard(
+                      'Transactions',
+                      '${_salesInRange.length}',
+                      const [
+                        AppTheme.midnightViolet,
+                        Color(0xFF2D1823),
+                      ],
+                      const Icon(Icons.receipt_long,
+                          size: 20, color: Colors.white),
+                    ),
                   ),
                 ],
               ),
@@ -256,10 +326,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.burntOrange.withValues(alpha: 0.05),
+                    color: AppTheme.burntOrange
+                        .withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                        color: AppTheme.burntOrange.withValues(alpha: 0.3)),
+                        color: AppTheme.burntOrange
+                            .withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
@@ -268,7 +340,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment:
+                          CrossAxisAlignment.start,
                           children: [
                             Text(
                               '${_heldOrders.length} held order(s)',
@@ -282,7 +355,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                               'Awaiting payment. Go to Sales → Held Orders.',
                               style: TextStyle(
                                   fontSize: 11,
-                                  color: AppTheme.onLightSecondary),
+                                  color:
+                                  AppTheme.onLightSecondary),
                             ),
                           ],
                         ),
@@ -310,21 +384,39 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                      color: AppTheme.inkBlack.withValues(alpha: 0.06)),
+                      color: AppTheme.inkBlack
+                          .withValues(alpha: 0.06)),
                 ),
                 child: SizedBox(height: 220, child: _buildChart()),
               ),
               const SizedBox(height: 24),
 
               // ─── Transactions ───
-              const Text(
-                'Transactions',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.inkBlack,
-                  letterSpacing: -0.2,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Transactions',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.inkBlack,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        context.push('/reports/transactions'),
+                    child: const Text(
+                      'View all',
+                      style: TextStyle(
+                        color: AppTheme.heroGreen,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               if (_salesInRange.isEmpty)
@@ -334,12 +426,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                        color: AppTheme.inkBlack.withValues(alpha: 0.06)),
+                        color: AppTheme.inkBlack
+                            .withValues(alpha: 0.06)),
                   ),
                   child: const Center(
                     child: Text(
                       'No transactions for this period',
-                      style: TextStyle(color: AppTheme.onLightMuted),
+                      style:
+                      TextStyle(color: AppTheme.onLightMuted),
                     ),
                   ),
                 )
@@ -361,7 +455,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        // ⭐ Smooth Gradient
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -405,6 +498,30 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
             AppTheme.onHeroSecondary,
             sub: true,
           ),
+
+          // ⭐ Payment-method breakdown for the period.
+          if (_cashTotal > 0 || _mpesaTotal > 0) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Divider(
+                color: Colors.white.withValues(alpha: 0.08),
+                height: 1,
+              ),
+            ),
+            _positionRow(
+              'Cash collected',
+              _formatKsh(_cashTotal),
+              AppTheme.onHeroSecondary,
+              sub: true,
+            ),
+            _positionRow(
+              'M-Pesa collected',
+              _formatKsh(_mpesaTotal),
+              AppTheme.onHeroSecondary,
+              sub: true,
+            ),
+          ],
+
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Divider(
@@ -425,7 +542,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                 : 'You are cash-negative for this period.',
             style: TextStyle(
               fontSize: 11,
-              color: net >= 0 ? AppTheme.brightGreen : AppTheme.burntOrange,
+              color:
+              net >= 0 ? AppTheme.brightGreen : AppTheme.burntOrange,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -465,6 +583,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
 
   // ─── Transaction Tile ───
   Widget _buildTransactionTile(Sale sale) {
+    final isSplit = (sale.paymentMethod ?? '').contains('+');
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -496,8 +616,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
             ),
           ),
           subtitle: Text(
-            sale.paymentMethod ?? 'Unknown',
-            style: const TextStyle(fontSize: 12, color: AppTheme.onLightMuted),
+            _prettyMethod(sale.paymentMethod ?? 'cash'),
+            style: const TextStyle(
+                fontSize: 12, color: AppTheme.onLightMuted),
           ),
           trailing: Text(
             _formatKsh(sale.totalAmountMinor),
@@ -509,7 +630,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           expandedCrossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Divider(color: AppTheme.inkBlack.withValues(alpha: 0.06), height: 1),
+            Divider(
+                color: AppTheme.inkBlack.withValues(alpha: 0.06),
+                height: 1),
             const SizedBox(height: 12),
             FutureBuilder<List<_SaleLine>>(
               future: _loadSaleLines(sale.id),
@@ -521,7 +644,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                       child: SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child:
+                        CircularProgressIndicator(strokeWidth: 2),
                       ),
                     ),
                   );
@@ -586,6 +710,72 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                         ),
                       );
                     }),
+
+                    // ⭐ Split-payment breakdown.
+                    if (isSplit) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Paid with',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          color: AppTheme.onLightSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      FutureBuilder<List<SalePayment>>(
+                        future: _loadSalePayments(sale.id),
+                        builder: (context, snap) {
+                          if (!snap.hasData) return const SizedBox();
+                          return Column(
+                            children: snap.data!.map((p) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 3),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      p.method == 'cash'
+                                          ? Icons.money
+                                          : Icons.phone_android,
+                                      size: 14,
+                                      color: AppTheme.heroGreen,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        _prettyMethod(p.method),
+                                        style:
+                                        const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                    if (p.reference != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                            right: 8),
+                                        child: Text(
+                                          p.reference!,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.onLightMuted,
+                                          ),
+                                        ),
+                                      ),
+                                    Text(
+                                      _formatKsh(p.amountMinor),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+                    ],
                   ],
                 );
               },
@@ -607,7 +797,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          // ⭐ Smooth Gradient
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -623,7 +812,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               children: [
                 iconWidget,
                 Icon(Icons.arrow_outward,
-                    size: 14, color: Colors.white.withValues(alpha: 0.4)),
+                    size: 14,
+                    color: Colors.white.withValues(alpha: 0.4)),
               ],
             ),
             const SizedBox(height: 16),
@@ -656,7 +846,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
   Widget _buildChart() {
     if (_trend.isEmpty) {
       return const Center(
-        child: Text('No data', style: TextStyle(color: AppTheme.onLightMuted)),
+        child: Text('No data',
+            style: TextStyle(color: AppTheme.onLightMuted)),
       );
     }
 
@@ -674,8 +865,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
           show: true,
           drawVerticalLine: false,
           horizontalInterval: safeMaxY / 4,
-          getDrawingHorizontalLine: (value) =>
-              FlLine(color: AppTheme.inkBlack.withValues(alpha: 0.05), strokeWidth: 1),
+          getDrawingHorizontalLine: (value) => FlLine(
+              color: AppTheme.inkBlack.withValues(alpha: 0.05),
+              strokeWidth: 1),
         ),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
@@ -725,9 +917,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                 toY: total,
                 color: AppTheme.brightGreen,
                 width: 16,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(6),
-                ),
+                borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(6)),
               ),
             ],
           );

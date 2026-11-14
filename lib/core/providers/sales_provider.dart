@@ -12,14 +12,35 @@ class SalesProvider extends ChangeNotifier {
   SalesProvider(this.db, this.businessId);
 
   /// Completes a sale with the chosen payment method.
+  ///
+  /// [payments] describes how the total was paid. If empty, a single split
+  /// is synthesized from [paymentMethod] so legacy call sites keep working.
+  /// The sum of `payments.amountMinor` must equal [totalAmountMinor].
   Future<void> completeSale({
     required List<CartItem> cart,
     required int totalAmountMinor,
     required String paymentMethod,
+    List<SalePaymentSplit> payments = const [],
   }) async {
+    // Backwards-compatible: synthesize a single-component split when the
+    // caller didn't supply one (cash-only / mpesa-only paths).
+    final effectivePayments = payments.isNotEmpty
+        ? payments
+        : [SalePaymentSplit(paymentMethod, totalAmountMinor)];
+
+    final paidSum =
+    effectivePayments.fold<int>(0, (s, p) => s + p.amountMinor);
+    if (paidSum != totalAmountMinor) {
+      throw ArgumentError(
+        'Payment split total ($paidSum minor) does not match '
+            'sale total ($totalAmountMinor minor)',
+      );
+    }
+
     final saleId = _uuid.v4();
 
     await db.transaction(() async {
+      // 1. Sale row
       await db.into(db.sales).insert(
         SalesCompanion.insert(
           id: saleId,
@@ -29,6 +50,20 @@ class SalesProvider extends ChangeNotifier {
         ),
       );
 
+      // 2. ⭐ Split-payment rows
+      for (final split in effectivePayments) {
+        await db.into(db.salePayments).insert(
+          SalePaymentsCompanion.insert(
+            id: _uuid.v4(),
+            saleId: saleId,
+            method: split.method,
+            amountMinor: split.amountMinor,
+            reference: drift.Value(split.reference),
+          ),
+        );
+      }
+
+      // 3. Sale items + stock movements (unchanged)
       for (final item in cart) {
         await db.into(db.saleItems).insert(
           SaleItemsCompanion.insert(
@@ -37,9 +72,11 @@ class SalesProvider extends ChangeNotifier {
             productId: item.product.id,
             quantityMilli: item.quantityMilli,
             unitPriceMinor: item.product.sellingPriceMinor,
-            costPriceMinor: drift.Value(item.product.costPriceMinor),
+            costPriceMinor:
+            drift.Value(item.product.costPriceMinor),
             lineTotalMinor:
-            (item.quantityMilli * item.product.sellingPriceMinor) ~/ 1000,
+            (item.quantityMilli * item.product.sellingPriceMinor) ~/
+                1000,
           ),
         );
 
@@ -55,6 +92,7 @@ class SalesProvider extends ChangeNotifier {
         );
       }
     });
+
     notifyListeners();
   }
 
@@ -126,4 +164,26 @@ class CartItem {
 
   int get lineTotalMinor =>
       product.sellingPriceMinor * quantityMilli ~/ 1000;
+}
+
+/// ⭐ One component of a split payment.
+///
+/// `method` is the payment channel (`'cash'` or `'mpesa'`). `reference`
+/// carries any channel-specific identifier (e.g. M-Pesa receipt number)
+/// and is nullable.
+class SalePaymentSplit {
+  final String method;
+  final int amountMinor;
+  final String? reference;
+
+  const SalePaymentSplit(
+      this.method,
+      this.amountMinor, {
+        this.reference,
+      });
+
+  @override
+  String toString() =>
+      'SalePaymentSplit(method: $method, amountMinor: $amountMinor, '
+          'reference: $reference)';
 }

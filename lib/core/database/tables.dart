@@ -75,6 +75,26 @@ class SaleItems extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+// ═══════════════════════════════════════════════════════════════════
+// NEW — split-payment components
+// ═══════════════════════════════════════════════════════════════════
+class SalePayments extends Table {
+  TextColumn get id => text()();
+  TextColumn get saleId =>
+      text().references(Sales, #id, onDelete: KeyAction.cascade)();
+
+  /// 'cash' | 'mpesa'
+  TextColumn get method => text()();
+  IntColumn get amountMinor => integer()();
+
+  /// Free-form: M-Pesa receipt number, cash drawer note, etc.
+  TextColumn get reference => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
 
 class StockMovements extends Table {
   TextColumn get id => text()();

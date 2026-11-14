@@ -43,7 +43,6 @@ class _SalesScreenState extends State<SalesScreen> {
   @override
   void initState() {
     super.initState();
-    // ⭐ Auto-open held orders if navigated with the flag (e.g. from dashboard).
     if (widget.autoOpenHeldOrders) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _openHeldOrders();
@@ -72,82 +71,48 @@ class _SalesScreenState extends State<SalesScreen> {
     });
   }
 
+  // ⭐ Split-payment flow.
   Future<void> _payNow() async {
     if (_cart.isEmpty) return;
+
     final total = _cartTotalMinor;
 
-    final method = await showDialog<String>(
+    final result = await showDialog<_PaymentResult>(
       context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
-        ),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                child: Text(
-                  'Payment method',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              ListTile(
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentMint.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.money,
-                      color: AppTheme.primaryGreen, size: 20),
-                ),
-                title: const Text('Cash',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text('KSh ${(total / 100).toStringAsFixed(2)}'),
-                onTap: () => Navigator.pop(ctx, 'Cash'),
-              ),
-              ListTile(
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentMint.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.phone_android,
-                      color: AppTheme.primaryGreen, size: 20),
-                ),
-                title: const Text('M-Pesa',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text('KSh ${(total / 100).toStringAsFixed(2)}'),
-                onTap: () => Navigator.pop(ctx, 'M-Pesa'),
-              ),
-              const Divider(height: 24),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-            ],
-          ),
-        ),
-      ),
+      barrierDismissible: false,
+      builder: (ctx) => _SplitPaymentDialog(totalMinor: total),
     );
 
-    if (method == null) return;
+    if (result == null || !mounted) return;
+
+    // Build split list. Cap recorded amounts at the sale total so
+    // overpayment (change) isn't double-counted in sale_payments.
+    int remaining = total;
+    final splits = <SalePaymentSplit>[];
+
+    if (result.cashMinor > 0) {
+      final cashRecorded =
+      result.cashMinor >= remaining ? remaining : result.cashMinor;
+      splits.add(SalePaymentSplit('cash', cashRecorded));
+      remaining -= cashRecorded;
+    }
+    if (remaining > 0 && result.mpesaMinor > 0) {
+      splits.add(SalePaymentSplit(
+        'mpesa',
+        remaining,
+        reference: result.mpesaReference,
+      ));
+      remaining = 0;
+    }
+
+    final methodLabel =
+    splits.length > 1 ? 'cash+mpesa' : splits.first.method;
 
     await widget.salesProvider.completeSale(
       cart: _cart,
       totalAmountMinor: total,
-      paymentMethod: method,
+      paymentMethod: methodLabel,
+      payments: splits,
     );
 
     if (!mounted) return;
@@ -155,9 +120,15 @@ class _SalesScreenState extends State<SalesScreen> {
       _cart.clear();
       _cartExpanded = false;
     });
+
+    final message = result.changeMinor > 0
+        ? 'Sale complete — change: KSh '
+        '${(result.changeMinor / 100).toStringAsFixed(2)}'
+        : 'Sale complete — $methodLabel';
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Sale complete — $method'),
+        content: Text(message),
         backgroundColor: AppTheme.primaryGreen,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
@@ -238,9 +209,6 @@ class _SalesScreenState extends State<SalesScreen> {
     );
   }
 
-  /// ⭐ Opens the held-orders screen and applies a resumed cart.
-  /// Requires SalesProvider to have no restoreHeldOrder method — the cart
-  /// travels entirely through the go_router pop result.
   Future<void> _openHeldOrders() async {
     final restored = await context.push<List<CartItem>>('/sales/held');
 
@@ -266,8 +234,6 @@ class _SalesScreenState extends State<SalesScreen> {
         title: const Text('New Sale'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          // ⭐ SalesScreen is always reached via context.go('/sales'),
-          // so canPop() is false. Go back to dashboard explicitly.
           onPressed: () => context.go('/dashboard'),
         ),
         actions: [
@@ -530,8 +496,7 @@ class _SalesScreenState extends State<SalesScreen> {
                     ),
                     const SizedBox(width: 8),
                     GestureDetector(
-                      onTap: () =>
-                          setState(() => _cartExpanded = false),
+                      onTap: () => setState(() => _cartExpanded = false),
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
@@ -690,8 +655,7 @@ class _SalesScreenState extends State<SalesScreen> {
                           foregroundColor: AppTheme.textPrimary,
                           side: const BorderSide(
                               color: AppTheme.surfaceMuted),
-                          padding:
-                          const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(999),
                           ),
@@ -712,6 +676,296 @@ class _SalesScreenState extends State<SalesScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SPLIT PAYMENT DIALOG
+// ═══════════════════════════════════════════════════════════════════
+
+class _PaymentResult {
+  final int cashMinor;
+  final int mpesaMinor;
+  final int changeMinor;
+  final String? mpesaReference;
+
+  const _PaymentResult({
+    required this.cashMinor,
+    required this.mpesaMinor,
+    required this.changeMinor,
+    this.mpesaReference,
+  });
+}
+
+class _SplitPaymentDialog extends StatefulWidget {
+  final int totalMinor;
+  const _SplitPaymentDialog({required this.totalMinor});
+
+  @override
+  State<_SplitPaymentDialog> createState() => _SplitPaymentDialogState();
+}
+
+class _SplitPaymentDialogState extends State<_SplitPaymentDialog> {
+  final _cashController = TextEditingController();
+  final _mpesaController = TextEditingController();
+  final _referenceController = TextEditingController();
+  String? _error;
+
+  int _parseKsh(String input) {
+    final cleaned = input.trim().replaceAll(',', '');
+    if (cleaned.isEmpty) return 0;
+    final v = double.tryParse(cleaned);
+    if (v == null || v < 0) return 0;
+    return (v * 100).round();
+  }
+
+  int get _cashMinor => _parseKsh(_cashController.text);
+  int get _mpesaMinor => _parseKsh(_mpesaController.text);
+  int get _paidMinor => _cashMinor + _mpesaMinor;
+  int get _balanceMinor => widget.totalMinor - _paidMinor;
+  int get _changeMinor => _balanceMinor < 0 ? -_balanceMinor : 0;
+  bool get _canSubmit => _paidMinor >= widget.totalMinor;
+
+  @override
+  void dispose() {
+    _cashController.dispose();
+    _mpesaController.dispose();
+    _referenceController.dispose();
+    super.dispose();
+  }
+
+  void _fillRemainingCash() {
+    final remaining = widget.totalMinor - _mpesaMinor;
+    if (remaining > 0) {
+      _cashController.text = (remaining / 100).toStringAsFixed(2);
+      setState(() => _error = null);
+    }
+  }
+
+  void _fillRemainingMpesa() {
+    final remaining = widget.totalMinor - _cashMinor;
+    if (remaining > 0) {
+      _mpesaController.text = (remaining / 100).toStringAsFixed(2);
+      setState(() => _error = null);
+    }
+  }
+
+  void _submit() {
+    if (!_canSubmit) {
+      setState(() => _error = 'Paid amount must be at least KSh '
+          '${(widget.totalMinor / 100).toStringAsFixed(2)}');
+      return;
+    }
+    Navigator.pop(
+      context,
+      _PaymentResult(
+        cashMinor: _cashMinor,
+        mpesaMinor: _mpesaMinor,
+        changeMinor: _changeMinor,
+        mpesaReference: _referenceController.text.trim().isEmpty
+            ? null
+            : _referenceController.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final overpaid = _balanceMinor < 0;
+    final exact = _balanceMinor == 0 && _paidMinor > 0;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28)),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            24 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Split Payment',
+                style: TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Enter amounts paid. Change is calculated automatically.',
+                style: TextStyle(
+                    fontSize: 12, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceMuted,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Total',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary)),
+                    Text(
+                      'KSh ${(widget.totalMinor / 100).toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _cashController,
+                      keyboardType:
+                      const TextInputType.numberWithOptions(
+                          decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Cash',
+                        prefixText: 'KSh ',
+                        prefixIcon: Icon(Icons.money),
+                      ),
+                      onChanged: (_) => setState(() => _error = null),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Fill remaining',
+                    onPressed: _fillRemainingCash,
+                    icon: const Icon(Icons.auto_fix_high, size: 20),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _mpesaController,
+                      keyboardType:
+                      const TextInputType.numberWithOptions(
+                          decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'M-Pesa',
+                        prefixText: 'KSh ',
+                        prefixIcon: Icon(Icons.phone_android),
+                      ),
+                      onChanged: (_) => setState(() => _error = null),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Fill remaining',
+                    onPressed: _fillRemainingMpesa,
+                    icon: const Icon(Icons.auto_fix_high, size: 20),
+                  ),
+                ],
+              ),
+              if (_mpesaMinor > 0) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _referenceController,
+                  decoration: const InputDecoration(
+                    labelText: 'M-Pesa receipt (optional)',
+                    prefixIcon:
+                    Icon(Icons.confirmation_number_outlined),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: overpaid
+                      ? AppTheme.heroGreen.withValues(alpha: 0.08)
+                      : exact
+                      ? AppTheme.softMint
+                      : AppTheme.burntOrange
+                      .withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      overpaid
+                          ? 'Change due'
+                          : exact
+                          ? 'Fully paid'
+                          : 'Balance due',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: overpaid || exact
+                            ? AppTheme.heroGreen
+                            : AppTheme.burntOrange,
+                      ),
+                    ),
+                    Text(
+                      'KSh ${((overpaid ? _changeMinor : _balanceMinor.abs()) / 100).toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: overpaid || exact
+                            ? AppTheme.heroGreen
+                            : AppTheme.burntOrange,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 8),
+                Text(_error!,
+                    style: const TextStyle(
+                        fontSize: 12, color: AppTheme.burntOrange)),
+              ],
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _canSubmit ? _submit : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.brightGreen,
+                        foregroundColor: AppTheme.inkBlack,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999)),
+                      ),
+                      child: const Text('Complete',
+                          style:
+                          TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

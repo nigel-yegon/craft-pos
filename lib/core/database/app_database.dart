@@ -11,6 +11,7 @@ part 'app_database.g.dart';
     Products,
     Sales,
     SaleItems,
+    SalePayments,        // ⭐ added — table defined in tables.dart:81
     StockMovements,
     Users,
     HeldOrders,
@@ -33,7 +34,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;   // ⭐ was 8
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -54,6 +55,21 @@ class AppDatabase extends _$AppDatabase {
       if (from < 8) {
         await m.createTable(subscriptions);
         await m.createTable(paymentAttempts);
+      }
+      // ⭐ new
+      if (from < 9) {
+        await m.createTable(salePayments);
+        await customStatement('''
+              INSERT INTO sale_payments (id, sale_id, method, amount_minor, created_at)
+              SELECT
+                lower(hex(randomblob(16))),
+                id,
+                COALESCE(NULLIF(payment_method, ''), 'cash'),
+                total_amount_minor,
+                created_at
+              FROM sales
+              WHERE total_amount_minor > 0
+            ''');
       }
     },
     beforeOpen: (details) async {

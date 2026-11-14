@@ -25,6 +25,7 @@ import '../../features/settings/notifications_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/settings/subscription_screen.dart';
 import '../../shared/widgets/app_shell.dart';
+import '../../features/reports/transactions_screen.dart';
 
 Future<GoRouter> createAppRouter(
     AppDatabase db, {
@@ -153,9 +154,13 @@ Future<GoRouter> createAppRouter(
                 builder: (context, state) =>
                     StockReportScreen(provider: productProvider),
               ),
+              GoRoute(
+                path: 'transactions',
+                builder: (context, state) =>
+                    TransactionsScreen(provider: reportProvider),
+              ),
             ],
-          ),
-        ],
+          ),     ],
       ),
     ],
   );

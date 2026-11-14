@@ -44,7 +44,8 @@ class ReportProvider extends ChangeNotifier {
       ..where((s) => s.createdAt.isSmallerThanValue(end));
 
     final sales = await salesQuery.get();
-    final totalSales = sales.fold<int>(0, (sum, s) => sum + s.totalAmountMinor);
+    final totalSales =
+    sales.fold<int>(0, (sum, s) => sum + s.totalAmountMinor);
 
     final profitQuery = db.customSelect(
       '''
@@ -62,7 +63,8 @@ class ReportProvider extends ChangeNotifier {
       readsFrom: {db.sales, db.saleItems},
     );
     final profitResult = await profitQuery.getSingleOrNull();
-    final totalProfit = (profitResult?.read<double?>('profit') ?? 0).round();
+    final totalProfit =
+    (profitResult?.read<double?>('profit') ?? 0).round();
 
     // ⭐ Stock valuation now comes straight from the ledger.
     final totalStockValue =
@@ -196,5 +198,53 @@ class ReportProvider extends ChangeNotifier {
       readsFrom: {db.heldOrders},
     ).getSingle();
     return result.read<int?>('cnt') ?? 0;
+  }
+
+  // ═══ Payment method totals (split payments) ═══
+
+  /// Aggregate totals per payment method for a given period.
+  ///
+  /// Reads from `sale_payments`, which stores one row per split component.
+  /// For legacy sales that predate the split table, the schema-9 migration
+  /// backfilled one row per sale so this always returns complete totals.
+  ///
+  /// Returns a map with keys `'cash'` and `'mpesa'`, both always present
+  /// (defaulting to `0` when there were no transactions of that method).
+  Future<Map<String, int>> getPaymentMethodTotals(
+      DateTime start,
+      DateTime end,
+      ) async {
+    final rows = await db.customSelect(
+      '''
+      SELECT sp.method AS method, COALESCE(SUM(sp.amount_minor), 0) AS total
+      FROM sale_payments sp
+      JOIN sales s ON s.id = sp.sale_id
+      WHERE s.business_id = ? AND s.status = 'completed'
+        AND s.created_at >= ? AND s.created_at < ?
+      GROUP BY sp.method
+      ''',
+      variables: [
+        Variable.withString(businessId),
+        Variable.withDateTime(start),
+        Variable.withDateTime(end),
+      ],
+      readsFrom: {db.salePayments, db.sales},
+    ).get();
+
+    final result = <String, int>{'cash': 0, 'mpesa': 0};
+    for (final row in rows) {
+      final method = row.read<String>('method');
+      final total = row.read<int?>('total') ?? 0;
+      result[method] = (result[method] ?? 0) + total;
+    }
+    return result;
+  }
+
+  /// Per-sale split breakdown, used by the Reports screen's transaction
+  /// tiles and by the new `TransactionsScreen`.
+  Future<List<SalePayment>> getSalePayments(String saleId) async {
+    return await (db.select(db.salePayments)
+      ..where((t) => t.saleId.equals(saleId)))
+        .get();
   }
 }
