@@ -1,10 +1,21 @@
+// lib/features/onboarding/splash_screens.dart
+
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 
 class SplashScreens extends StatefulWidget {
+  /// Called when the preloader animation finishes.
   final VoidCallback onComplete;
 
-  const SplashScreens({super.key, required this.onComplete});
+  /// When true, shows "Setting up your shop..." copy — for first run /
+  /// after a reset. When false, shows "Loading your workspace...".
+  final bool isFirstRun;
+
+  const SplashScreens({
+    super.key,
+    required this.onComplete,
+    this.isFirstRun = false,
+  });
 
   @override
   State<SplashScreens> createState() => _SplashScreensState();
@@ -20,23 +31,22 @@ class _SplashScreensState extends State<SplashScreens>
   void initState() {
     super.initState();
 
-    // 1. Pulse Animation (breathing effect on the logo)
+    // Pulse (breathing effect on the logo tile)
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1600),
     )..repeat(reverse: true);
 
-    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+    _scaleAnimation = Tween<double>(begin: 0.96, end: 1.04).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    // 2. Progress Animation (preloader bar)
+    // Progress bar (2.2s — just long enough for the pulse to complete ~1.5 cycles)
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2500),
+      duration: const Duration(milliseconds: 2200),
     );
 
-    // When progress hits 100%, trigger the navigation callback
     _progressController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         widget.onComplete();
@@ -56,100 +66,119 @@ class _SplashScreensState extends State<SplashScreens>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.heroGreen, // Deep forest green background
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Spacer(),
+      // Gradient background matches the dashboard hero card
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppTheme.midGreen,
+              AppTheme.heroGreen,
+              AppTheme.forestDeep,
+            ],
+            stops: [0.0, 0.55, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
+            child: Column(
+              children: [
+                const Spacer(),
 
-              // ═══ ANIMATED LOGO ═══
-              ScaleTransition(
-                scale: _scaleAnimation,
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: AppTheme.brightGreen,
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.brightGreen.withValues(alpha: 0.3),
-                        blurRadius: 40,
-                        spreadRadius: 10,
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(
+                // ═══ LOGO TILE ═══
+                ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: Container(
+                    width: 112,
+                    height: 112,
+                    decoration: BoxDecoration(
+                      color: AppTheme.brightGreen,
+                      borderRadius: BorderRadius.circular(30),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.brightGreen.withValues(alpha: 0.35),
+                          blurRadius: 40,
+                          spreadRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
                       Icons.storefront_rounded,
-                      size: 50,
+                      size: 56,
                       color: AppTheme.inkBlack,
                     ),
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 32),
+                const SizedBox(height: 32),
 
-              // ═══ BRAND TEXT ═══
-              const Text(
-                'Craft Business',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: -0.8,
+                // ═══ BRAND TEXT ═══
+                const Text(
+                  'Craft POS',
+                  style: TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: -1.0,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Sell. Track. Grow.',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white.withValues(alpha: 0.6),
-                  letterSpacing: 0.5,
+                const SizedBox(height: 8),
+                Text(
+                  widget.isFirstRun
+                      ? 'Let\'s set up your shop'
+                      : 'Sell. Track. Grow.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.65),
+                    letterSpacing: 0.4,
+                  ),
                 ),
-              ),
 
-              const Spacer(),
+                const Spacer(),
 
-              // ═══ PRELOADER BAR ═══
-              Column(
-                children: [
-                  // The progress bar
-                  AnimatedBuilder(
-                    animation: _progressController,
-                    builder: (context, child) {
-                      return ClipRRect(
-                        borderRadius: BorderRadius.circular(999),
-                        child: LinearProgressIndicator(
-                          value: _progressController.value,
-                          minHeight: 6,
-                          backgroundColor: Colors.white.withValues(alpha: 0.1),
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            AppTheme.brightGreen,
+                // ═══ PROGRESS ═══
+                AnimatedBuilder(
+                  animation: _progressController,
+                  builder: (context, _) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Thin progress bar with rounded ends
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: _progressController.value,
+                            minHeight: 5,
+                            backgroundColor:
+                            Colors.white.withValues(alpha: 0.15),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              AppTheme.brightGreen,
+                            ),
                           ),
                         ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Preparing your workspace...',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ],
-              ),
+                        const SizedBox(height: 14),
+                        // Status copy — changes based on first-run flag
+                        Text(
+                          widget.isFirstRun
+                              ? 'Preparing your workspace...'
+                              : 'Loading your shop...',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.55),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
 
-              const SizedBox(height: 20),
-            ],
+                const SizedBox(height: 16),
+              ],
+            ),
           ),
         ),
       ),

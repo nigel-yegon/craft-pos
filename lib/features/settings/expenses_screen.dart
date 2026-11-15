@@ -63,21 +63,26 @@ class _ExpensesScreenState extends State<ExpensesScreen>
           _buildRecurringTab(),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.add),
-        label: Text(
-            _tabController.index == 0 ? 'Add Expense' : 'Add Recurring'),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ExpenseFormScreen(
-                provider: widget.provider,
-                isRecurring: _tabController.index == 1,
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(
+          bottom: AppTheme.navClearance + MediaQuery.of(context).viewPadding.bottom,
+        ),
+        child: FloatingActionButton.extended(
+          icon: const Icon(Icons.add),
+          label: Text(
+              _tabController.index == 0 ? 'Add Expense' : 'Add Recurring'),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ExpenseFormScreen(
+                  provider: widget.provider,
+                  isRecurring: _tabController.index == 1,
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -334,7 +339,12 @@ class _ExpensesScreenState extends State<ExpensesScreen>
             return Card(
               child: ListTile(
                 leading: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: EdgeInsets.fromLTRB(
+                    24,
+                    16,
+                    24,
+                    48 + MediaQuery.of(context).viewInsets.bottom + AppTheme.navClearance,
+                  ),
                   decoration: BoxDecoration(
                     color: (overdue ? Colors.red : AppTheme.primaryGreen)
                         .withValues(alpha: 0.1),

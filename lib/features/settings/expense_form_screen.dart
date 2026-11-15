@@ -112,7 +112,12 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 48),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            16,
+            24,
+            48 + MediaQuery.of(context).viewInsets.bottom + AppTheme.navClearance,
+          ),
           children: [
             CleanField(
               label: 'Name',

@@ -1,4 +1,6 @@
 // lib/core/router/app_router.dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../features/onboarding/splash_screens.dart';
 
 import 'package:go_router/go_router.dart';
 
@@ -62,6 +64,25 @@ Future<GoRouter> createAppRouter(
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) {
+          return Consumer(
+            builder: (context, ref, _) {
+              final businessAsync = ref.watch(currentBusinessProvider);
+              final hasBusiness = businessAsync.value != null;
+              return SplashScreens(
+                // First run = no business yet
+                isFirstRun: !hasBusiness,
+                onComplete: () {
+                  // Router's redirect will send them to /setup or /login
+                  // once the router rebuilds — nothing to do here.
+                },
+              );
+            },
+          );
+        },
+      ),
       GoRoute(
         path: '/login',
         builder: (context, state) => LoginScreen(authProvider: authProvider),

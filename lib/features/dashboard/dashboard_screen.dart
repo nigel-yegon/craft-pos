@@ -248,6 +248,102 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+
+                // ═══ UPGRADE TO PRO BANNER (Now at bottom) ═══
+                Consumer(
+                  builder: (context, ref, _) {
+                    final isTrialAsync = ref.watch(isTrialProvider);
+                    return isTrialAsync.maybeWhen(
+                      data: (isTrial) {
+                        if (!isTrial) return const SizedBox.shrink();
+                        return GestureDetector(
+                          onTap: () => context.push('/settings/subscription'),
+                          child: Container(
+                            margin: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              // Deep green gradient to feel premium
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  AppTheme.forestDeep,
+                                  AppTheme.heroGreen,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.forestDeep.withValues(alpha: 0.2),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                // Gold star icon
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.withValues(alpha: 0.15),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.workspace_premium,
+                                    color: Colors.amber,
+                                    size: 24,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Upgrade to Pro',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                          color: Colors.white,
+                                          letterSpacing: -0.2,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Unlock unlimited reports, cloud sync, and more.',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.white70,
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // CTA Arrow
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.arrow_forward,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                      orElse: () => const SizedBox.shrink(),
+                    );
+                  },
+                ),
                 // ═══ HERO CARD ═══
                 Container(
                   margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -696,101 +792,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                   ),
 
-                // ═══ UPGRADE TO PRO BANNER (Now at bottom) ═══
-                Consumer(
-                  builder: (context, ref, _) {
-                    final isTrialAsync = ref.watch(isTrialProvider);
-                    return isTrialAsync.maybeWhen(
-                      data: (isTrial) {
-                        if (!isTrial) return const SizedBox.shrink();
-                        return GestureDetector(
-                          onTap: () => context.push('/settings/subscription'),
-                          child: Container(
-                            margin: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              // Deep green gradient to feel premium
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  AppTheme.forestDeep,
-                                  AppTheme.heroGreen,
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.forestDeep.withValues(alpha: 0.2),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                // Gold star icon
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.amber.withValues(alpha: 0.15),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.workspace_premium,
-                                    color: Colors.amber,
-                                    size: 24,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                const Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Upgrade to Pro',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 15,
-                                          color: Colors.white,
-                                          letterSpacing: -0.2,
-                                        ),
-                                      ),
-                                      SizedBox(height: 2),
-                                      Text(
-                                        'Unlock unlimited reports, cloud sync, and more.',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.white70,
-                                          height: 1.3,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                // CTA Arrow
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.arrow_forward,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                      orElse: () => const SizedBox.shrink(),
-                    );
-                  },
-                ),
+
               ],
             ),
           ),
