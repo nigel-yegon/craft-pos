@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -99,10 +101,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style:
-            ElevatedButton.styleFrom(backgroundColor: AppTheme.burntOrange),
-            child:
-            const Text('Restore Now', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.burntOrange),
+            child: const Text('Restore Now',
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -158,108 +160,31 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     );
   }
 
-  // ⭐ Reset flow — typed-DELETE confirmation, wipe, route to /setup.
-  Future<void> _handleResetShop() async {
-    final textController = TextEditingController();
-    String? errorText;
+  /// Verifies the entered PIN against the users table.
+  /// ⚠️ The salt must match `AuthProvider._hashPin`.
+  Future<bool> _verifyShopPin(String pin) async {
+    try {
+      final db = ref.read(databaseProvider);
+      final users = await db.select(db.users).get();
+      if (users.isEmpty) return false;
+      final salt = 'craft_pos_salt_$pin';
+      final hash = sha256.convert(utf8.encode(salt)).toString();
+      return users.any((u) => u.pinHash == hash);
+    } catch (e) {
+      debugPrint('verifyShopPin failed: $e');
+      return false;
+    }
+  }
 
+  // ⭐ PIN-verified reset flow — uses _ResetPinDialog to own the controller.
+  Future<void> _handleResetShop() async {
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setState) {
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24)),
-              title: const Row(
-                children: [
-                  Icon(Icons.warning_amber_rounded,
-                      color: AppTheme.burntOrange),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Reset shop?',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.inkBlack),
-                    ),
-                  ),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'This will permanently delete:',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.inkBlack),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '• Products and categories\n'
-                        '• Sales and transactions\n'
-                        '• Stock movements\n'
-                        '• Held orders\n'
-                        '• Expenses and recurring expenses\n'
-                        '• Users and shop settings\n'
-                        '• Subscription and notifications',
-                    style: TextStyle(color: AppTheme.onLightSecondary),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'This cannot be undone. Type DELETE below to confirm.',
-                    style: TextStyle(
-                        fontSize: 12, color: AppTheme.onLightMuted),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: textController,
-                    autofocus: true,
-                    textCapitalization: TextCapitalization.characters,
-                    decoration: InputDecoration(
-                      labelText: 'Type DELETE',
-                      errorText: errorText,
-                      border: const OutlineInputBorder(),
-                    ),
-                    onChanged: (_) {
-                      if (errorText != null) {
-                        setState(() => errorText = null);
-                      }
-                    },
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    if (textController.text.trim() != 'DELETE') {
-                      setState(() => errorText = 'Type DELETE exactly');
-                      return;
-                    }
-                    Navigator.pop(ctx, true);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.burntOrange,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Delete everything'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (ctx) => _ResetPinDialog(
+        onVerify: (pin) => _verifyShopPin(pin),
+      ),
     );
-
-    textController.dispose();
 
     if (confirmed != true || !mounted) return;
 
@@ -277,15 +202,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       await db.wipeAllData();
 
       if (!mounted) return;
-
-      // Close the spinner.
       Navigator.of(context, rootNavigator: true).pop();
 
       if (!mounted) return;
-
-      // Route to /setup so the user creates a fresh business.
-      // The stale AuthProvider._currentUser is overwritten when the
-      // user completes setup and calls createUser().
       context.go('/setup');
     } catch (e) {
       if (!mounted) return;
@@ -660,6 +579,151 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           ...children,
         ],
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RESET PIN DIALOG (owns its TextEditingController)
+// ═══════════════════════════════════════════════════════════════════
+
+class _ResetPinDialog extends StatefulWidget {
+  final Future<bool> Function(String pin) onVerify;
+
+  const _ResetPinDialog({required this.onVerify});
+
+  @override
+  State<_ResetPinDialog> createState() => _ResetPinDialogState();
+}
+
+class _ResetPinDialogState extends State<_ResetPinDialog> {
+  final _pinController = TextEditingController();
+  String? _errorText;
+  bool _isVerifying = false;
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final pin = _pinController.text.trim();
+    if (pin.length != 4) {
+      setState(() => _errorText = 'Enter a 4-digit PIN');
+      return;
+    }
+    setState(() {
+      _isVerifying = true;
+      _errorText = null;
+    });
+    final ok = await widget.onVerify(pin);
+    if (!mounted) return;
+    if (!ok) {
+      setState(() {
+        _isVerifying = false;
+        _errorText = 'Incorrect PIN';
+      });
+      return;
+    }
+    Navigator.pop(context, true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      title: const Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: AppTheme.burntOrange),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Reset shop?',
+              style: TextStyle(
+                  fontWeight: FontWeight.w700, color: AppTheme.inkBlack),
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'This will permanently delete:',
+            style: TextStyle(
+                fontWeight: FontWeight.w600, color: AppTheme.inkBlack),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '• Products and categories\n'
+                '• Sales and transactions\n'
+                '• Stock movements\n'
+                '• Held orders\n'
+                '• Expenses and recurring expenses\n'
+                '• Users and shop settings\n'
+                '• Subscription and notifications',
+            style: TextStyle(color: AppTheme.onLightSecondary),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'This cannot be undone. Enter your shop PIN to confirm.',
+            style: TextStyle(fontSize: 12, color: AppTheme.onLightMuted),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _pinController,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            obscureText: true,
+            maxLength: 4,
+            textAlign: TextAlign.center,
+            enabled: !_isVerifying,
+            style: const TextStyle(
+              fontSize: 24,
+              letterSpacing: 12,
+              fontWeight: FontWeight.w700,
+            ),
+            decoration: InputDecoration(
+              counterText: '',
+              errorText: _errorText,
+              hintText: '••••',
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (_) {
+              if (_errorText != null) {
+                setState(() => _errorText = null);
+              }
+            },
+            onSubmitted: (_) => _submit(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isVerifying ? null : () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isVerifying ? null : _submit,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.burntOrange,
+            foregroundColor: Colors.white,
+          ),
+          child: _isVerifying
+              ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
+            ),
+          )
+              : const Text('Delete everything'),
+        ),
+      ],
     );
   }
 }

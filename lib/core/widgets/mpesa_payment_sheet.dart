@@ -26,15 +26,86 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
   PaymentStatus _status = PaymentStatus.idle;
   bool _busy = false;
 
-  // Visual countdown during PIN entry.
   Timer? _uiTimer;
-  int _secondsRemaining = 90;
+  int _secondsRemaining = 120;
+
+  StreamSubscription<PaymentStatus>? _activeSub;
+  Timer? _hardTimeout;
+  String? _activeCheckoutId;
+
+  // Row id from startAttempt — int? because SQLite PKs are INTEGER.
+  int? _activeAttemptId;
+
+  bool _resolved = false;
+
+  /// Normalises an id value (String, int, or null) into a String.
+  /// Empty string means "no id".
+  String _idStr(Object? v) => v?.toString() ?? '';
 
   @override
   void dispose() {
+    _activeSub?.cancel();
+    _hardTimeout?.cancel();
     _uiTimer?.cancel();
+
+    final checkoutId = _idStr(_activeCheckoutId);
+    final id = checkoutId.isNotEmpty
+        ? checkoutId
+        : _idStr(_activeAttemptId);
+    final phone = _phoneController.text.trim();
+    final plan = widget.plan;
+    if (id.isNotEmpty) {
+      try {
+        final db = ref.read(databaseProvider);
+        unawaited(
+          SubscriptionService(db)
+              .recordAttempt(
+            checkoutRequestId: id,
+            amount: plan.amountKes,
+            plan: plan.id,
+            phone: phone,
+            state: 'cancelled',
+            message: 'Sheet dismissed',
+          )
+              .timeout(const Duration(seconds: 5))
+              .catchError((e) { debugPrint('dispose release failed: $e'); return null; }),
+        );
+      } catch (e) {
+        debugPrint('dispose: ref.read failed: $e');
+      }
+    }
+
     _phoneController.dispose();
     super.dispose();
+  }
+
+  Future<void> _cancel() async {
+    await _releaseActiveAttempt('cancelled');
+    if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _releaseActiveAttempt(String state) async {
+    final checkoutId = _idStr(_activeCheckoutId).isNotEmpty
+        ? _idStr(_activeCheckoutId)
+        : _idStr(_status.checkoutRequestId);
+    final id = checkoutId.isNotEmpty
+        ? checkoutId
+        : _idStr(_activeAttemptId);
+    if (id.isEmpty) return;
+    try {
+      await SubscriptionService(ref.read(databaseProvider))
+          .recordAttempt(
+        checkoutRequestId: id,
+        amount: widget.plan.amountKes,
+        plan: widget.plan.id,
+        phone: _phoneController.text.trim(),
+        state: state,
+        message: 'Released by client ($state)',
+      )
+          .timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('releaseActiveAttempt($state) failed: $e');
+    }
   }
 
   Future<void> _startPayment() async {
@@ -43,15 +114,17 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
     setState(() {
       _busy = true;
       _status = PaymentStatus.idle;
-      _secondsRemaining = 120; // match STK expiry (90–120s)
+      _secondsRemaining = 120;
     });
+
+    _resolved = false;
+    _activeCheckoutId = null;
+    _activeAttemptId = null;
 
     final mpesa = ref.read(mpesaServiceProvider);
     final db = ref.read(databaseProvider);
     final subs = SubscriptionService(db);
 
-    StreamSubscription<PaymentStatus>? sub;
-    Timer? hardTimeout;
     bool popped = false;
 
     void popOnce(bool? result) {
@@ -60,14 +133,16 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
       Navigator.pop(context, result);
     }
 
-    // Fires when the stream goes silent. Treated like a timeout: persist
-    // and hand off to the reconciler.
     Future<void> onHardTimeout() async {
-      if (popped) return;
+      if (_resolved || popped) return;
+      _resolved = true;
+      final checkoutId = _idStr(_status.checkoutRequestId).isNotEmpty
+          ? _idStr(_status.checkoutRequestId)
+          : _idStr(_activeCheckoutId);
       try {
         await subs
             .recordAttempt(
-          checkoutRequestId: _status.checkoutRequestId ?? '',
+          checkoutRequestId: checkoutId,
           amount: widget.plan.amountKes,
           plan: widget.plan.id,
           phone: _phoneController.text.trim(),
@@ -89,26 +164,20 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
       );
 
       if (attempt == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('A payment is already in progress. Please wait.'),
-              backgroundColor: AppTheme.burntOrange,
-            ),
-          );
-        }
-        popOnce(false);
-        return;
+        debugPrint(
+          'startAttempt returned null — a stale pending row exists. '
+              'Proceeding anyway; reconcile after the fact.',
+        );
+      } else {
+        _activeAttemptId = attempt.id;
       }
 
-      // ⭐ Hard deadline: 120s wall-clock, independent of the stream.
-      hardTimeout = Timer(const Duration(seconds: 120), () {
-        onHardTimeout();
-      });
+      _hardTimeout?.cancel();
+      _hardTimeout = Timer(const Duration(seconds: 120), onHardTimeout);
 
       final completer = Completer<void>();
 
-      sub = mpesa
+      _activeSub = mpesa
           .pay(
         phone: _phoneController.text.trim(),
         amount: widget.plan.amountKes,
@@ -127,11 +196,15 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
             }
           });
 
-          if (s.state == PaymentState.awaitingPin &&
-              s.checkoutRequestId != null) {
+          final cid = _idStr(s.checkoutRequestId);
+          if (cid.isNotEmpty) {
+            _activeCheckoutId = cid;
+          }
+
+          if (s.state == PaymentState.awaitingPin && cid.isNotEmpty) {
             try {
               await subs.recordAttempt(
-                checkoutRequestId: s.checkoutRequestId!,
+                checkoutRequestId: cid,
                 amount: widget.plan.amountKes,
                 plan: widget.plan.id,
                 phone: _phoneController.text.trim(),
@@ -143,11 +216,14 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
           }
 
           if (s.state == PaymentState.success) {
-            hardTimeout?.cancel();
+            if (_resolved) return;
+            _resolved = true;
+            _hardTimeout?.cancel();
+            _uiTimer?.cancel();
             try {
               await subs
                   .recordAttempt(
-                checkoutRequestId: s.checkoutRequestId ?? '',
+                checkoutRequestId: _idStr(s.checkoutRequestId),
                 amount: widget.plan.amountKes,
                 plan: widget.plan.id,
                 phone: _phoneController.text.trim(),
@@ -164,17 +240,21 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
             } catch (e) {
               debugPrint('invalidateSubscription failed: $e');
             }
+            if (mounted) setState(() => _busy = false);
             popOnce(true);
             if (!completer.isCompleted) completer.complete();
             return;
           }
 
           if (s.state == PaymentState.failed) {
-            hardTimeout?.cancel();
+            if (_resolved) return;
+            _resolved = true;
+            _hardTimeout?.cancel();
+            _uiTimer?.cancel();
             try {
               await subs
                   .recordAttempt(
-                checkoutRequestId: s.checkoutRequestId ?? '',
+                checkoutRequestId: _idStr(s.checkoutRequestId),
                 amount: widget.plan.amountKes,
                 plan: widget.plan.id,
                 phone: _phoneController.text.trim(),
@@ -185,17 +265,21 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
             } catch (e) {
               debugPrint('recordAttempt(failed) failed: $e');
             }
+            if (mounted) setState(() => _busy = false);
             popOnce(false);
             if (!completer.isCompleted) completer.complete();
             return;
           }
 
           if (s.state == PaymentState.timeout) {
-            hardTimeout?.cancel();
+            if (_resolved) return;
+            _resolved = true;
+            _hardTimeout?.cancel();
+            _uiTimer?.cancel();
             try {
               await subs
                   .recordAttempt(
-                checkoutRequestId: s.checkoutRequestId ?? '',
+                checkoutRequestId: _idStr(s.checkoutRequestId),
                 amount: widget.plan.amountKes,
                 plan: widget.plan.id,
                 phone: _phoneController.text.trim(),
@@ -206,6 +290,7 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
             } catch (e) {
               debugPrint('recordAttempt(timeout) failed: $e');
             }
+            if (mounted) setState(() => _busy = false);
             popOnce(null);
             if (!completer.isCompleted) completer.complete();
             return;
@@ -213,7 +298,10 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
         },
         onError: (e) async {
           debugPrint('payment stream error: $e');
-          hardTimeout?.cancel();
+          if (_resolved) return;
+          _resolved = true;
+          _hardTimeout?.cancel();
+          _uiTimer?.cancel();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -222,13 +310,13 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
               ),
             );
           }
+          if (mounted) setState(() => _busy = false);
           popOnce(false);
           if (!completer.isCompleted) completer.complete();
         },
-        onDone: () {
-          // Stream ended without a terminal state → treat as timeout.
+        onDone: () async {
           if (!completer.isCompleted) {
-            if (!popped) onHardTimeout();
+            if (!popped && !_resolved) await onHardTimeout();
             completer.complete();
           }
         },
@@ -248,9 +336,10 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
         popOnce(false);
       }
     } finally {
-      // ⭐ Guaranteed cleanup regardless of which path resolved.
-      hardTimeout?.cancel();
-      await sub?.cancel();
+      _hardTimeout?.cancel();
+      _hardTimeout = null;
+      await _activeSub?.cancel();
+      _activeSub = null;
       _uiTimer?.cancel();
       _uiTimer = null;
       if (mounted) {
@@ -260,6 +349,8 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
   }
 
   void _startPollingCountdown() {
+    _uiTimer?.cancel();
+    _secondsRemaining = 120;
     _uiTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
@@ -284,9 +375,6 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
         left: 24,
         right: 24,
         top: 24,
-        // ⭐ AppTheme.navClearance keeps the sheet's content above the
-        //    floating nav pill even in edge cases where the modal-hide-nav
-        //    mechanism hasn't kicked in yet.
         bottom: 24 +
             MediaQuery.of(context).viewInsets.bottom +
             AppTheme.navClearance,
@@ -305,7 +393,9 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
               ),
               const Spacer(),
               TextButton(
-                onPressed: _busy ? null : () => Navigator.pop(context),
+                onPressed: _status.state == PaymentState.success
+                    ? null
+                    : _cancel,
                 child: const Text('Cancel'),
               ),
             ],
@@ -332,7 +422,6 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
             ),
             const SizedBox(height: 24),
 
-            // ── Status UI ──
             if (_status.state == PaymentState.initiating)
               _statusRow(
                 Icons.hourglass_top,
@@ -340,8 +429,7 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
                 'Sending request to M-Pesa...',
               ),
 
-            if (_status.state == PaymentState.awaitingPin)
-              _pinPromptCard(),
+            if (_status.state == PaymentState.awaitingPin) _pinPromptCard(),
 
             if (_status.state == PaymentState.failed)
               _statusRow(
@@ -354,8 +442,7 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
               _statusRow(
                 Icons.info_outline,
                 AppTheme.burntOrange,
-                _status.message ??
-                    'Payment status unknown. Check your SMS.',
+                _status.message ?? 'Payment status unknown. Check your SMS.',
               ),
 
             if (_status.state == PaymentState.success)
@@ -367,7 +454,6 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
 
             const SizedBox(height: 16),
 
-            // ── Action Button ──
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -395,16 +481,15 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
                     ? const SizedBox(
                   height: 20,
                   width: 20,
-                  child:
-                  CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 )
                     : Text(
                   _status.state == PaymentState.timeout ||
                       _status.state == PaymentState.failed
                       ? 'Try Again'
                       : 'Send STK Push',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700),
+                  style:
+                  const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -420,8 +505,7 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
       decoration: BoxDecoration(
         color: AppTheme.brightGreen.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: AppTheme.brightGreen.withValues(alpha: 0.3)),
+        border: Border.all(color: AppTheme.brightGreen.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -445,9 +529,8 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: _secondsRemaining / 90,
-              backgroundColor:
-              AppTheme.brightGreen.withValues(alpha: 0.2),
+              value: _secondsRemaining / 120,
+              backgroundColor: AppTheme.brightGreen.withValues(alpha: 0.2),
               color: AppTheme.heroGreen,
               minHeight: 6,
             ),

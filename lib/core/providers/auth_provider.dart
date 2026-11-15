@@ -1,3 +1,7 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'database_provider.dart';
+import 'business_provider.dart';
+
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -76,6 +80,15 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// ⭐ Verify the given PIN against the currently logged-in user's
+  /// stored hash. Used by destructive actions (e.g. reset shop) that
+  /// require re-authentication. Returns false if no user is signed in.
+  Future<bool> verifyCurrentUserPin(String pin) async {
+    final user = _currentUser;
+    if (user == null) return false;
+    return user.pinHash == _hashPin(pin);
+  }
+
   /// Check if any users exist (for first-time setup)
   Future<bool> hasUsers() async {
     final users = await (db.select(db.users)..where((u) => u.businessId.equals(businessId))).get();
@@ -88,3 +101,11 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
+
+// ⭐ Expose the AuthProvider as a Riverpod provider. The provider rebuilds
+//   whenever the active business changes, so login state follows the business.
+final authProvider = Provider<AuthProvider>((ref) {
+  final db = ref.watch(databaseProvider);
+  final business = ref.watch(currentBusinessProvider).value;
+  return AuthProvider(db, business?.id ?? '');
+});

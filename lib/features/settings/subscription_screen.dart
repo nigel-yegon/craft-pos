@@ -2,13 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:craft_pos/core/database/app_database.dart';
-import 'package:craft_pos/core/models/subscription_model.dart';
 import 'package:craft_pos/core/models/subscription_plan.dart';
 import 'package:craft_pos/core/providers/mpesa_provider.dart';
-import 'package:craft_pos/core/providers/ui_state_provider.dart';
-import 'package:craft_pos/core/providers/database_provider.dart';
-import 'package:craft_pos/core/services/subscription_service.dart';
 import 'package:craft_pos/core/theme/app_theme.dart';
 import 'package:craft_pos/core/widgets/activation_code_section.dart';
 import 'package:craft_pos/core/widgets/current_plan_card.dart';
@@ -30,9 +25,6 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   SubscriptionPlan get _selectedPlan =>
       SubscriptionPlan.all[_selectedPlanIndex];
 
-  SubscriptionService get _subs =>
-      SubscriptionService(ref.read(databaseProvider));
-
   void _scrollToPlans() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -42,17 +34,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     );
   }
 
-  Future<void> _startSubscribe(PaymentAttempt? pending) async {
-    if (pending != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('A payment is already in progress. Please wait.'),
-          backgroundColor: AppTheme.burntOrange,
-        ),
-      );
-      return;
-    }
-
+  Future<void> _startSubscribe() async {
     final online = ref.read(connectivityServiceProvider).isOnline;
     if (!online) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -66,66 +48,24 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       return;
     }
 
-    // ⭐ Hide the shell's nav pill while the payment sheet is open.
-    ref.read(modalOpenProvider.notifier).state = true;
-    try {
-      final result = await showModalBottomSheet<bool>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.white,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        builder: (_) => MpesaPaymentSheet(plan: _selectedPlan),
-      );
-
-      if (!mounted) return;
-
-      if (result == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Subscription activated!'),
-            backgroundColor: AppTheme.heroGreen,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        ref.read(modalOpenProvider.notifier).state = false;
-      }
-    }
-  }
-
-  Future<void> _cancelPending(PaymentAttempt pending) async {
-    final confirmed = await showDialog<bool>(
+    final result = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cancel payment?'),
-        content: const Text(
-          'We will stop waiting for M-Pesa. If the payment already went through, '
-              'your subscription will still be activated automatically.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep waiting'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Cancel payment'),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      builder: (_) => MpesaPaymentSheet(plan: _selectedPlan),
     );
 
-    if (confirmed != true) return;
-
-    await _subs.resolveAttempt(
-      attemptId: pending.id,
-      state: PaymentAttemptState.timeout,
-      message: 'Cancelled by user',
-    );
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Subscription activated!'),
+          backgroundColor: AppTheme.heroGreen,
+        ),
+      );
+    }
   }
 
   @override
@@ -141,181 +81,73 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: StreamBuilder<SubscriptionState>(
-        stream: _subs.watchFullState(),
-        builder: (context, snapshot) {
-          final state = snapshot.data ?? SubscriptionState.empty;
-          final pending = state.pendingAttempt;
-          final isLocked = pending != null;
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 48),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const OfflineBanner(),
-
-                if (pending != null) ...[
-                  _PendingPaymentBanner(
-                    attempt: pending,
-                    onCancel: () => _cancelPending(pending),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                CurrentPlanCard(onUpgradeTap: _scrollToPlans),
-                const SizedBox(height: 32),
-                const Text(
-                  'Choose your plan',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.inkBlack,
-                    letterSpacing: -0.6,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Upgrade to unlock unlimited stock management, advanced reports, and cloud backups.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.onLightMuted,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                ...SubscriptionPlan.all.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final plan = entry.value;
-                  return Opacity(
-                    opacity: isLocked ? 0.5 : 1.0,
-                    child: IgnorePointer(
-                      ignoring: isLocked,
-                      child: PlanCard(
-                        plan: plan,
-                        isSelected: _selectedPlanIndex == index,
-                        onTap: () =>
-                            setState(() => _selectedPlanIndex = index),
-                      ),
-                    ),
-                  );
-                }),
-
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed:
-                    isLocked ? null : () => _startSubscribe(pending),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isLocked
-                          ? AppTheme.surfaceMuted
-                          : AppTheme.brightGreen,
-                      foregroundColor: isLocked
-                          ? AppTheme.onLightMuted
-                          : AppTheme.inkBlack,
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                    child: Text(
-                      isLocked
-                          ? 'Payment in progress…'
-                          : 'Subscribe to ${_selectedPlan.title}',
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-                const ActivationCodeSection(),
-                const SizedBox(height: 32),
-                const Center(
-                  child: Text(
-                    'Safe and secure payment via M-Pesa',
-                    style: TextStyle(
-                        fontSize: 12, color: AppTheme.onLightMuted),
-                  ),
-                ),
-              ],
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 48),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const OfflineBanner(),
+            CurrentPlanCard(onUpgradeTap: _scrollToPlans),
+            const SizedBox(height: 32),
+            const Text(
+              'Choose your plan',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.inkBlack,
+                letterSpacing: -0.6,
+              ),
             ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// PENDING PAYMENT BANNER
-// ═══════════════════════════════════════════════════════════════════
-
-class _PendingPaymentBanner extends StatelessWidget {
-  final PaymentAttempt attempt;
-  final VoidCallback onCancel;
-
-  const _PendingPaymentBanner({
-    required this.attempt,
-    required this.onCancel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.burntOrange.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppTheme.burntOrange.withValues(alpha: 0.35),
+            const SizedBox(height: 8),
+            Text(
+              'Upgrade to unlock unlimited stock management, advanced reports, and cloud backups.',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.onLightMuted,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ...SubscriptionPlan.all.asMap().entries.map((entry) {
+              final index = entry.key;
+              final plan = entry.value;
+              return PlanCard(
+                plan: plan,
+                isSelected: _selectedPlanIndex == index,
+                onTap: () => setState(() => _selectedPlanIndex = index),
+              );
+            }),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _startSubscribe,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.brightGreen,
+                  foregroundColor: AppTheme.inkBlack,
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                child: Text(
+                  'Subscribe to ${_selectedPlan.title}',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+            const ActivationCodeSection(),
+            const SizedBox(height: 32),
+            const Center(
+              child: Text(
+                'Safe and secure payment via M-Pesa',
+                style: TextStyle(fontSize: 12, color: AppTheme.onLightMuted),
+              ),
+            ),
+          ],
         ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AppTheme.burntOrange,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Payment in progress',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.inkBlack,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Waiting for M-Pesa confirmation for KSh ${attempt.amount}…',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.inkBlack.withValues(alpha: 0.6),
-                    height: 1.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: onCancel,
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: AppTheme.burntOrange),
-            ),
-          ),
-        ],
       ),
     );
   }

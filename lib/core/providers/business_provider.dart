@@ -1,19 +1,28 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../database/app_database.dart';
+import 'database_provider.dart';
+
+// ⭐ Global provider — the single source of truth for the active business.
+// Returns null if no business exists yet (first-run / post-wipe).
+final currentBusinessProvider = StreamProvider<BusinessesData?>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.select(db.businesses).watchSingleOrNull();
+});
 
 class BusinessProvider extends ChangeNotifier {
   final AppDatabase db;
   final String businessId;
   BusinessProvider(this.db, this.businessId);
 
-  Stream<BusinessesData?> get businessStream =>              // ⭐ was Business?
-  (db.select(db.businesses)..where((b) => b.id.equals(businessId)))
-      .watchSingleOrNull();
+  Stream<BusinessesData?> get businessStream =>
+      (db.select(db.businesses)..where((b) => b.id.equals(businessId)))
+          .watchSingleOrNull();
 
   Future<void> updateBusiness({
     required String name,

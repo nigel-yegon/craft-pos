@@ -10,6 +10,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/business_provider.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/providers/notifications_provider.dart';
+import '../../core/providers/subscription_provider.dart';
 import '../../core/theme/app_theme.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -35,13 +36,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _lowStockCount = 0;
   int _todayExpenses = 0;
 
-  // Owner name shown under the greeting.
   String _ownerName = '';
-
-  // Branding slider state.
   int _brandingSlideIndex = 0;
 
-  // ⭐ Recent transactions
   List<Sale> _recentSales = const [];
   final Map<String, List<RecentSaleLine>> _recentLineCache = {};
 
@@ -71,9 +68,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _loadOwnerName() async {
     final loggedIn = widget.authProvider.currentUser;
     if (loggedIn != null && loggedIn.name.trim().isNotEmpty) {
-      if (mounted) {
-        setState(() => _ownerName = loggedIn.name.trim());
-      }
+      if (mounted) setState(() => _ownerName = loggedIn.name.trim());
       return;
     }
 
@@ -203,14 +198,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   String _prettyMethod(String m) {
     switch (m) {
-      case 'cash':
-        return 'Cash';
-      case 'mpesa':
-        return 'M-Pesa';
-      case 'cash+mpesa':
-        return 'Cash + M-Pesa';
-      default:
-        return m;
+      case 'cash': return 'Cash';
+      case 'mpesa': return 'M-Pesa';
+      case 'cash+mpesa': return 'Cash + M-Pesa';
+      default: return m;
     }
   }
 
@@ -219,8 +210,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Log out?'),
-        content: const Text(
-            'You will need to sign in again to access your shop.'),
+        content: const Text('You will need to sign in again to access your shop.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -254,9 +244,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           backgroundColor: AppTheme.heroGreen,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.only(
-              bottom: AppTheme.navClearance,   // 96 dp — just clears the pill
-            ),
+            padding: EdgeInsets.only(bottom: AppTheme.navClearance),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -268,10 +256,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [
-                        AppTheme.midGreen,
-                        AppTheme.heroGreen,
-                      ],
+                      colors: [AppTheme.midGreen, AppTheme.heroGreen],
                     ),
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
@@ -285,7 +270,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ─── Header row ──────────────────────────────
                       Row(
                         children: [
                           GestureDetector(
@@ -297,22 +281,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 height: 40,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color:
-                                  Colors.white.withValues(alpha: 0.1),
+                                  color: Colors.white.withValues(alpha: 0.1),
                                   border: Border.all(
-                                    color: Colors.white
-                                        .withValues(alpha: 0.2),
+                                    color: Colors.white.withValues(alpha: 0.2),
                                     width: 0.5,
                                   ),
                                 ),
                                 child: StreamBuilder<BusinessesData?>(
-                                  stream: widget
-                                      .businessProvider.businessStream,
+                                  stream: widget.businessProvider.businessStream,
                                   builder: (context, snapshot) {
-                                    final imagePath =
-                                        snapshot.data?.imagePath;
-                                    if (imagePath != null &&
-                                        File(imagePath).existsSync()) {
+                                    final imagePath = snapshot.data?.imagePath;
+                                    if (imagePath != null && File(imagePath).existsSync()) {
                                       return ClipOval(
                                         child: Image.file(
                                           File(imagePath),
@@ -322,8 +301,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                         ),
                                       );
                                     }
-                                    return const Icon(Icons.person,
-                                        color: Colors.white, size: 20);
+                                    return const Icon(Icons.person, color: Colors.white, size: 20);
                                   },
                                 ),
                               ),
@@ -332,12 +310,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 StreamBuilder<BusinessesData?>(
-                                  stream: widget
-                                      .businessProvider.businessStream,
+                                  stream: widget.businessProvider.businessStream,
                                   builder: (context, snapshot) {
                                     return Text(
                                       snapshot.data?.name ?? 'My Shop',
@@ -357,26 +333,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   '${_greeting()}, ${_ownerName.isNotEmpty ? _ownerName : ''}',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.white
-                                        .withValues(alpha: 0.85),
+                                    color: Colors.white.withValues(alpha: 0.85),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-
-                          // Live notification bell
                           Consumer(
                             builder: (context, ref, _) {
-                              final unread = ref
-                                  .watch(
-                                  unreadNotificationsCountProvider)
-                                  .value ??
-                                  0;
+                              final unread = ref.watch(unreadNotificationsCountProvider).value ?? 0;
                               return GestureDetector(
-                                onTap: () => context
-                                    .push('/settings/notifications'),
+                                onTap: () => context.push('/settings/notifications'),
                                 child: Stack(
                                   clipBehavior: Clip.none,
                                   children: [
@@ -385,40 +353,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                       height: 38,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        color: Colors.white
-                                            .withValues(alpha: 0.06),
+                                        color: Colors.white.withValues(alpha: 0.06),
                                         border: Border.all(
-                                          color: Colors.white
-                                              .withValues(alpha: 0.15),
+                                          color: Colors.white.withValues(alpha: 0.15),
                                           width: 0.5,
                                         ),
                                       ),
-                                      child: const Icon(
-                                        Icons.notifications_none_outlined,
-                                        size: 18,
-                                        color: Colors.white,
-                                      ),
+                                      child: const Icon(Icons.notifications_none_outlined, size: 18, color: Colors.white),
                                     ),
                                     if (unread > 0)
                                       Positioned(
                                         top: -2,
                                         right: -2,
                                         child: Container(
-                                          padding:
-                                          const EdgeInsets.all(4),
+                                          padding: const EdgeInsets.all(4),
                                           decoration: const BoxDecoration(
                                             color: AppTheme.brightGreen,
                                             shape: BoxShape.circle,
                                           ),
-                                          constraints:
-                                          const BoxConstraints(
-                                            minWidth: 16,
-                                            minHeight: 16,
-                                          ),
+                                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                                           child: Text(
-                                            unread > 99
-                                                ? '99+'
-                                                : '$unread',
+                                            unread > 99 ? '99+' : '$unread',
                                             textAlign: TextAlign.center,
                                             style: const TextStyle(
                                               color: Colors.white,
@@ -435,7 +390,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             },
                           ),
                           const SizedBox(width: 8),
-
                           GestureDetector(
                             onTap: () => _confirmLogout(context),
                             child: Container(
@@ -443,23 +397,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               height: 38,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color:
-                                Colors.white.withValues(alpha: 0.06),
+                                color: Colors.white.withValues(alpha: 0.06),
                                 border: Border.all(
-                                  color: Colors.white
-                                      .withValues(alpha: 0.15),
+                                  color: Colors.white.withValues(alpha: 0.15),
                                   width: 0.5,
                                 ),
                               ),
-                              child: const Icon(Icons.logout,
-                                  color: Colors.white, size: 18),
+                              child: const Icon(Icons.logout, color: Colors.white, size: 18),
                             ),
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 40),
-
                       Text(
                         'Total balance',
                         style: TextStyle(
@@ -482,9 +431,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                           ),
                           Text(
-                            _currencyFormatter
-                                .format(_todaySales / 100)
-                                .replaceFirst('KSh ', ''),
+                            _currencyFormatter.format(_todaySales / 100).replaceFirst('KSh ', ''),
                             style: const TextStyle(
                               fontSize: 34,
                               color: Colors.white,
@@ -495,9 +442,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 22),
-
                       Row(
                         children: [
                           _heroPill(
@@ -511,10 +456,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             label: 'Held Orders',
                             icon: Icons.pause_circle_outline,
                             isPrimary: true,
-                            onTap: () => context.go(
-                              '/sales',
-                              extra: {'openHeldOrders': true},
-                            ),
+                            onTap: () => context.go('/sales', extra: {'openHeldOrders': true}),
                           ),
                           const SizedBox(width: 10),
                           _heroIconButton(
@@ -562,58 +504,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             const crossAxisSpacing = 10.0;
                             const mainAxisSpacing = 14.0;
                             const itemCount = 8;
-
                             final isWide = constraints.maxWidth >= 700;
                             final crossAxisCount = isWide ? 8 : 4;
-
-                            final tileWidth =
-                                (constraints.maxWidth -
-                                    crossAxisSpacing *
-                                        (crossAxisCount - 1)) /
-                                    crossAxisCount;
+                            final tileWidth = (constraints.maxWidth - crossAxisSpacing * (crossAxisCount - 1)) / crossAxisCount;
 
                             final items = <Widget>[
-                              _categoryItem(
-                                icon: Icons.shopping_cart_outlined,
-                                label: 'Sale',
-                                isHighlighted: true,
-                                onTap: () => context.go('/sales'),
-                              ),
-                              _categoryItem(
-                                icon: Icons.inventory_2_outlined,
-                                label: 'Stock',
-                                onTap: () => context.go('/inventory'),
-                              ),
-                              _categoryItem(
-                                icon: Icons.storefront_outlined,
-                                label: 'Products',
-                                onTap: () => context.go('/products'),
-                              ),
-                              _categoryItem(
-                                icon: Icons.bar_chart_rounded,
-                                label: 'Reports',
-                                onTap: () => context.go('/reports'),
-                              ),
-                              _categoryItem(
-                                icon: Icons.receipt_long_outlined,
-                                label: 'Transactions',
-                                onTap: () => context.go('/reports'),
-                              ),
-                              _categoryItem(
-                                icon: Icons.attach_money_outlined,
-                                label: 'Profit',
-                                onTap: () => context.go('/reports'),
-                              ),
-                              _categoryItem(
-                                icon: Icons.payments_outlined,
-                                label: 'Expenses',
-                                onTap: () => context.push('/settings'),
-                              ),
-                              _categoryItem(
-                                icon: Icons.settings_outlined,
-                                label: 'Settings',
-                                onTap: () => context.push('/settings'),
-                              ),
+                              _categoryItem(icon: Icons.shopping_cart_outlined, label: 'Sale', isHighlighted: true, onTap: () => context.go('/sales')),
+                              _categoryItem(icon: Icons.inventory_2_outlined, label: 'Stock', onTap: () => context.go('/inventory')),
+                              _categoryItem(icon: Icons.storefront_outlined, label: 'Products', onTap: () => context.go('/products')),
+                              _categoryItem(icon: Icons.bar_chart_rounded, label: 'Reports', onTap: () => context.go('/reports')),
+                              _categoryItem(icon: Icons.receipt_long_outlined, label: 'Transactions', onTap: () => context.go('/reports')),
+                              _categoryItem(icon: Icons.attach_money_outlined, label: 'Profit', onTap: () => context.go('/reports')),
+                              _categoryItem(icon: Icons.payments_outlined, label: 'Expenses', onTap: () => context.push('/settings')),
+                              _categoryItem(icon: Icons.settings_outlined, label: 'Settings', onTap: () => context.push('/settings')),
                             ];
 
                             return GridView.builder(
@@ -621,8 +524,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               physics: const NeverScrollableScrollPhysics(),
                               padding: EdgeInsets.zero,
                               itemCount: itemCount,
-                              gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: crossAxisCount,
                                 crossAxisSpacing: crossAxisSpacing,
                                 mainAxisSpacing: mainAxisSpacing,
@@ -663,14 +565,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                       ),
                       const SizedBox(height: 18),
-
                       Row(
                         children: [
                           Expanded(
                             child: _metricCard(
                               title: 'Today\'s Sales',
-                              value: _currencyFormatter
-                                  .format(_todaySales / 100),
+                              value: _currencyFormatter.format(_todaySales / 100),
                               icon: Icons.shopping_bag_outlined,
                               bgColor: AppTheme.heroGreen,
                               onTap: () => context.go('/sales'),
@@ -680,8 +580,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           Expanded(
                             child: _metricCard(
                               title: 'Today\'s Profit',
-                              value: _currencyFormatter
-                                  .format(_todayProfit / 100),
+                              value: _currencyFormatter.format(_todayProfit / 100),
                               icon: Icons.trending_up,
                               bgColor: AppTheme.midGreen,
                               onTap: () => context.go('/reports'),
@@ -705,8 +604,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           Expanded(
                             child: _metricCard(
                               title: 'Expenses',
-                              value: _currencyFormatter
-                                  .format(_todayExpenses / 100),
+                              value: _currencyFormatter.format(_todayExpenses / 100),
                               icon: Icons.payments_outlined,
                               bgColor: AppTheme.midnightViolet,
                               onTap: () => context.push('/settings'),
@@ -727,19 +625,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color:
-                          AppTheme.burntOrange.withValues(alpha: 0.05),
+                          color: AppTheme.burntOrange.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(
-                            color: AppTheme.burntOrange
-                                .withValues(alpha: 0.35),
+                            color: AppTheme.burntOrange.withValues(alpha: 0.35),
                             width: 0.5,
                           ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.warning_amber_rounded,
-                                color: AppTheme.burntOrange, size: 18),
+                            const Icon(Icons.warning_amber_rounded, color: AppTheme.burntOrange, size: 18),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
@@ -751,10 +646,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 ),
                               ),
                             ),
-                            Icon(Icons.chevron_right,
-                                color: AppTheme.burntOrange
-                                    .withValues(alpha: 0.7),
-                                size: 18),
+                            Icon(Icons.chevron_right, color: AppTheme.burntOrange.withValues(alpha: 0.7), size: 18),
                           ],
                         ),
                       ),
@@ -781,13 +673,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               ),
                             ),
                             TextButton(
-                              onPressed: () =>
-                                  context.push('/reports/transactions'),
+                              onPressed: () => context.push('/reports/transactions'),
                               style: TextButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 minimumSize: Size.zero,
-                                tapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                               child: const Text(
                                 'View all',
@@ -805,6 +695,102 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ],
                     ),
                   ),
+
+                // ═══ UPGRADE TO PRO BANNER (Now at bottom) ═══
+                Consumer(
+                  builder: (context, ref, _) {
+                    final isTrialAsync = ref.watch(isTrialProvider);
+                    return isTrialAsync.maybeWhen(
+                      data: (isTrial) {
+                        if (!isTrial) return const SizedBox.shrink();
+                        return GestureDetector(
+                          onTap: () => context.push('/settings/subscription'),
+                          child: Container(
+                            margin: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              // Deep green gradient to feel premium
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  AppTheme.forestDeep,
+                                  AppTheme.heroGreen,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.forestDeep.withValues(alpha: 0.2),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                // Gold star icon
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.withValues(alpha: 0.15),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.workspace_premium,
+                                    color: Colors.amber,
+                                    size: 24,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Upgrade to Pro',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                          color: Colors.white,
+                                          letterSpacing: -0.2,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Unlock unlimited reports, cloud sync, and more.',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.white70,
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // CTA Arrow
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.arrow_forward,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                      orElse: () => const SizedBox.shrink(),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -822,14 +808,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: AppTheme.inkBlack.withValues(alpha: 0.08)),
+        border: Border.all(color: AppTheme.inkBlack.withValues(alpha: 0.08)),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
           leading: Container(
             padding: const EdgeInsets.all(8),
@@ -837,11 +821,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               color: AppTheme.softMint,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
-              Icons.receipt,
-              color: AppTheme.heroGreen,
-              size: 18,
-            ),
+            child: const Icon(Icons.receipt, color: AppTheme.heroGreen, size: 18),
           ),
           title: Text(
             DateFormat('dd MMM, HH:mm').format(sale.createdAt),
@@ -853,8 +833,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           subtitle: Text(
             _prettyMethod(sale.paymentMethod ?? 'cash'),
-            style: const TextStyle(
-                fontSize: 11, color: AppTheme.onLightMuted),
+            style: const TextStyle(fontSize: 11, color: AppTheme.onLightMuted),
           ),
           trailing: Text(
             _currencyFormatter.format(sale.totalAmountMinor / 100),
@@ -865,9 +844,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ),
           children: [
-            Divider(
-                color: AppTheme.inkBlack.withValues(alpha: 0.06),
-                height: 1),
+            Divider(color: AppTheme.inkBlack.withValues(alpha: 0.06), height: 1),
             const SizedBox(height: 10),
             FutureBuilder<List<RecentSaleLine>>(
               future: _loadRecentSaleLines(sale),
@@ -879,8 +856,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: SizedBox(
                         width: 16,
                         height: 16,
-                        child:
-                        CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                     ),
                   );
@@ -892,9 +868,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     padding: EdgeInsets.symmetric(vertical: 8),
                     child: Text(
                       'No line items recorded.',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.onLightMuted),
+                      style: TextStyle(fontSize: 11, color: AppTheme.onLightMuted),
                     ),
                   );
                 }
@@ -913,33 +887,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     const SizedBox(height: 6),
                     ...lines.map((line) {
                       final qty = line.quantityMilli / 1000.0;
-                      final qtyLabel = qty % 1 == 0
-                          ? qty.toStringAsFixed(0)
-                          : qty.toStringAsFixed(2);
+                      final qtyLabel = qty % 1 == 0 ? qty.toStringAsFixed(0) : qty.toStringAsFixed(2);
                       return Padding(
-                        padding:
-                        const EdgeInsets.symmetric(vertical: 3),
+                        padding: const EdgeInsets.symmetric(vertical: 3),
                         child: Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                line.productName,
-                                style: const TextStyle(fontSize: 12),
-                              ),
+                              child: Text(line.productName, style: const TextStyle(fontSize: 12)),
                             ),
                             Text(
                               '$qtyLabel × ${_currencyFormatter.format(line.unitPriceMinor / 100)}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.onLightMuted,
-                              ),
+                              style: const TextStyle(fontSize: 11, color: AppTheme.onLightMuted),
                             ),
                             const SizedBox(width: 10),
                             SizedBox(
                               width: 80,
                               child: Text(
-                                _currencyFormatter
-                                    .format(line.lineTotalMinor / 100),
+                                _currencyFormatter.format(line.lineTotalMinor / 100),
                                 textAlign: TextAlign.right,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
@@ -951,7 +915,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                       );
                     }),
-
                     if (isSplit) ...[
                       const SizedBox(height: 10),
                       const Text(
@@ -966,54 +929,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       FutureBuilder<List<SalePayment>>(
                         future: (() async {
                           final db = ref.read(databaseProvider);
-                          return (db.select(db.salePayments)
-                            ..where((p) => p.saleId.equals(sale.id)))
-                              .get();
+                          return (db.select(db.salePayments)..where((p) => p.saleId.equals(sale.id))).get();
                         })(),
                         builder: (context, snap) {
                           if (!snap.hasData) return const SizedBox();
                           return Column(
                             children: snap.data!.map((p) {
                               return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 2),
+                                padding: const EdgeInsets.symmetric(vertical: 2),
                                 child: Row(
                                   children: [
                                     Icon(
-                                      p.method == 'cash'
-                                          ? Icons.money
-                                          : Icons.phone_android,
+                                      p.method == 'cash' ? Icons.money : Icons.phone_android,
                                       size: 12,
                                       color: AppTheme.heroGreen,
                                     ),
                                     const SizedBox(width: 6),
                                     Expanded(
-                                      child: Text(
-                                        _prettyMethod(p.method),
-                                        style: const TextStyle(
-                                            fontSize: 11),
-                                      ),
+                                      child: Text(_prettyMethod(p.method), style: const TextStyle(fontSize: 11)),
                                     ),
                                     if (p.reference != null)
                                       Padding(
-                                        padding: const EdgeInsets.only(
-                                            right: 6),
+                                        padding: const EdgeInsets.only(right: 6),
                                         child: Text(
                                           p.reference!,
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            color:
-                                            AppTheme.onLightMuted,
-                                          ),
+                                          style: const TextStyle(fontSize: 10, color: AppTheme.onLightMuted),
                                         ),
                                       ),
                                     Text(
-                                      _currencyFormatter
-                                          .format(p.amountMinor / 100),
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      _currencyFormatter.format(p.amountMinor / 100),
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                                     ),
                                   ],
                                 ),
@@ -1036,21 +981,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // ⭐ Branding slider — full-width gradient card with 3 slides.
   Widget _buildBrandingSlider() {
     const slides = [
-      (
-      icon: Icons.insights_outlined,
-      title: 'Track every shilling',
-      subtitle: 'Live sales, profit, and stock value — no spreadsheets.',
-      ),
-      (
-      icon: Icons.storefront_outlined,
-      title: 'Sell faster, anywhere',
-      subtitle: 'Cash, M-Pesa, or split payments — one tap.',
-      ),
-      (
-      icon: Icons.shield_outlined,
-      title: 'Built for Kenyan shops',
-      subtitle: 'Offline-first. Data stays on your device.',
-      ),
+      (icon: Icons.insights_outlined, title: 'Track every shilling', subtitle: 'Live sales, profit, and stock value — no spreadsheets.'),
+      (icon: Icons.storefront_outlined, title: 'Sell faster, anywhere', subtitle: 'Cash, M-Pesa, or split payments — one tap.'),
+      (icon: Icons.shield_outlined, title: 'Built for Kenyan shops', subtitle: 'Offline-first. Data stays on your device.'),
     ];
 
     return Container(
@@ -1060,11 +993,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            AppTheme.forestDeep,
-            AppTheme.heroGreen,
-            AppTheme.brightGreen,
-          ],
+          colors: [AppTheme.forestDeep, AppTheme.heroGreen, AppTheme.brightGreen],
           stops: [0.0, 0.55, 1.0],
         ),
         borderRadius: BorderRadius.circular(22),
@@ -1083,8 +1012,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             height: 96,
             child: PageView.builder(
               itemCount: slides.length,
-              onPageChanged: (i) =>
-                  setState(() => _brandingSlideIndex = i),
+              onPageChanged: (i) => setState(() => _brandingSlideIndex = i),
               itemBuilder: (context, i) {
                 final s = slides[i];
                 return Row(
@@ -1147,9 +1075,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 width: selected ? 18 : 6,
                 height: 6,
                 decoration: BoxDecoration(
-                  color: selected
-                      ? Colors.white
-                      : Colors.white.withValues(alpha: 0.35),
+                  color: selected ? Colors.white : Colors.white.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(3),
                 ),
               );
@@ -1218,18 +1144,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ? const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              AppTheme.brightGreen,
-              Color(0xFF2BB673),
-            ],
+            colors: [AppTheme.brightGreen, Color(0xFF2BB673)],
           )
               : LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Colors.white.withValues(alpha: 0.12),
-              Colors.white.withValues(alpha: 0.03),
-            ],
+            colors: [Colors.white.withValues(alpha: 0.12), Colors.white.withValues(alpha: 0.03)],
           ),
           borderRadius: BorderRadius.circular(999),
           border: isPrimary
@@ -1242,11 +1162,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isPrimary ? AppTheme.inkBlack : Colors.white,
-            ),
+            Icon(icon, size: 14, color: isPrimary ? AppTheme.inkBlack : Colors.white),
             const SizedBox(width: 8),
             Text(
               label,
@@ -1329,10 +1245,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(icon,
-                    size: 18, color: Colors.white.withValues(alpha: 0.6)),
-                Icon(Icons.arrow_outward,
-                    size: 14, color: Colors.white.withValues(alpha: 0.3)),
+                Icon(icon, size: 18, color: Colors.white.withValues(alpha: 0.6)),
+                Icon(Icons.arrow_outward, size: 14, color: Colors.white.withValues(alpha: 0.3)),
               ],
             ),
             const SizedBox(height: 24),
@@ -1404,10 +1318,7 @@ class _UniversalSearchDelegate extends SearchDelegate {
       ),
       inputDecorationTheme: InputDecorationTheme(
         border: InputBorder.none,
-        hintStyle: TextStyle(
-          color: AppTheme.inkBlack.withValues(alpha: 0.4),
-          fontSize: 16,
-        ),
+        hintStyle: TextStyle(color: AppTheme.inkBlack.withValues(alpha: 0.4), fontSize: 16),
       ),
       textTheme: const TextTheme(
         titleLarge: TextStyle(color: AppTheme.inkBlack, fontSize: 18),
@@ -1452,9 +1363,7 @@ class _UniversalSearchDelegate extends SearchDelegate {
       future: _search(query),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppTheme.burntOrange),
-          );
+          return const Center(child: CircularProgressIndicator(color: AppTheme.burntOrange));
         }
         final results = snapshot.data!;
         if (results.isEmpty) {
@@ -1487,8 +1396,7 @@ class _UniversalSearchDelegate extends SearchDelegate {
                     color: AppTheme.burntOrange.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child:
-                  Icon(r.icon, color: AppTheme.burntOrange, size: 16),
+                  child: Icon(r.icon, color: AppTheme.burntOrange, size: 16),
                 ),
                 title: Text(
                   r.title,
@@ -1505,9 +1413,11 @@ class _UniversalSearchDelegate extends SearchDelegate {
                     fontSize: 11,
                   ),
                 ),
-                trailing: Icon(Icons.chevron_right,
-                    color: AppTheme.inkBlack.withValues(alpha: 0.3),
-                    size: 18),
+                trailing: Icon(
+                  Icons.chevron_right,
+                  color: AppTheme.inkBlack.withValues(alpha: 0.3),
+                  size: 18,
+                ),
                 onTap: () {
                   close(context, null);
                   r.onTap(context);
@@ -1531,9 +1441,7 @@ class _UniversalSearchDelegate extends SearchDelegate {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                size: 48,
-                color: AppTheme.inkBlack.withValues(alpha: 0.25)),
+            Icon(icon, size: 48, color: AppTheme.inkBlack.withValues(alpha: 0.25)),
             const SizedBox(height: 16),
             Text(
               title,
@@ -1563,10 +1471,7 @@ class _UniversalSearchDelegate extends SearchDelegate {
     final term = q.toLowerCase();
     final results = <_SearchResult>[];
 
-    final products = await (db.select(db.products)
-      ..where((p) => p.businessId.equals(businessId)))
-        .get();
-
+    final products = await (db.select(db.products)..where((p) => p.businessId.equals(businessId))).get();
     for (final p in products) {
       if (p.name.toLowerCase().contains(term) ||
           (p.sku?.toLowerCase().contains(term) ?? false) ||
@@ -1574,17 +1479,13 @@ class _UniversalSearchDelegate extends SearchDelegate {
         results.add(_SearchResult(
           icon: Icons.inventory_2_outlined,
           title: p.name,
-          subtitle:
-          'Product · KSh ${(p.sellingPriceMinor / 100).toStringAsFixed(2)}',
+          subtitle: 'Product · KSh ${(p.sellingPriceMinor / 100).toStringAsFixed(2)}',
           onTap: (ctx) => ctx.go('/products'),
         ));
       }
     }
 
-    final categories = await (db.select(db.categories)
-      ..where((c) => c.businessId.equals(businessId)))
-        .get();
-
+    final categories = await (db.select(db.categories)..where((c) => c.businessId.equals(businessId))).get();
     for (final c in categories) {
       if (c.name.toLowerCase().contains(term)) {
         results.add(_SearchResult(
@@ -1601,16 +1502,13 @@ class _UniversalSearchDelegate extends SearchDelegate {
       ..orderBy([(s) => OrderingTerm.desc(s.createdAt)])
       ..limit(50))
         .get();
-
     for (final s in sales) {
       final amount = 'KSh ${(s.totalAmountMinor / 100).toStringAsFixed(2)}';
-      if (amount.toLowerCase().contains(term) ||
-          s.paymentMethod?.toLowerCase().contains(term) == true) {
+      if (amount.toLowerCase().contains(term) || s.paymentMethod?.toLowerCase().contains(term) == true) {
         results.add(_SearchResult(
           icon: Icons.receipt_long_outlined,
           title: amount,
-          subtitle:
-          '${s.paymentMethod ?? 'Sale'} · ${_formatDate(s.createdAt)}',
+          subtitle: '${s.paymentMethod ?? 'Sale'} · ${_formatDate(s.createdAt)}',
           onTap: (ctx) => ctx.go('/reports'),
         ));
       }
@@ -1620,15 +1518,12 @@ class _UniversalSearchDelegate extends SearchDelegate {
       ..where((e) => e.businessId.equals(businessId))
       ..limit(50))
         .get();
-
     for (final e in expenses) {
-      if (e.name.toLowerCase().contains(term) ||
-          e.category.toLowerCase().contains(term)) {
+      if (e.name.toLowerCase().contains(term) || e.category.toLowerCase().contains(term)) {
         results.add(_SearchResult(
           icon: Icons.payments_outlined,
           title: e.name,
-          subtitle:
-          '${e.category} · KSh ${(e.amountMinor / 100).toStringAsFixed(2)}',
+          subtitle: '${e.category} · KSh ${(e.amountMinor / 100).toStringAsFixed(2)}',
           onTap: (ctx) => ctx.go('/settings'),
         ));
       }
@@ -1638,15 +1533,12 @@ class _UniversalSearchDelegate extends SearchDelegate {
       ..where((h) => h.businessId.equals(businessId))
       ..limit(20))
         .get();
-
     for (final h in held) {
-      if ((h.note?.toLowerCase().contains(term) ?? false) ||
-          'held'.contains(term)) {
+      if ((h.note?.toLowerCase().contains(term) ?? false) || 'held'.contains(term)) {
         results.add(_SearchResult(
           icon: Icons.pause_circle_outline,
           title: 'Held order',
-          subtitle:
-          'KSh ${(h.totalAmountMinor / 100).toStringAsFixed(2)} · ${h.note ?? ''}',
+          subtitle: 'KSh ${(h.totalAmountMinor / 100).toStringAsFixed(2)} · ${h.note ?? ''}',
           onTap: (ctx) => ctx.go('/sales'),
         ));
       }

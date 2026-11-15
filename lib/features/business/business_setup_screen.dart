@@ -1,10 +1,15 @@
-import 'package:drift/drift.dart' show Value;
+// lib/features/business/business_setup_screen.dart
+
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:uuid/uuid.dart';
 
 import '../../core/database/app_database.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -17,22 +22,36 @@ class BusinessSetupScreen extends ConsumerStatefulWidget {
 }
 
 class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
-  final _formKey = GlobalKey<FormState>();
+  final _pageController = PageController();
+  int _currentStep = 0;
 
+  // Step 1: Business Details
+  final _businessFormKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
-
   String _currency = 'KES';
+
+  // Step 2: Owner Details
+  final _ownerFormKey = GlobalKey<FormState>();
+  final _ownerNameController = TextEditingController();
+  final _pinController = TextEditingController();
+  final _confirmPinController = TextEditingController();
+
   bool _saving = false;
+  String? _error;
 
   @override
   void dispose() {
+    _pageController.dispose();
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     _addressController.dispose();
+    _ownerNameController.dispose();
+    _pinController.dispose();
+    _confirmPinController.dispose();
     super.dispose();
   }
 
@@ -55,59 +74,105 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
     return null;
   }
 
-  Future<void> _saveBusiness() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _nextStep() {
+    if (_currentStep == 0) {
+      if (!_businessFormKey.currentState!.validate()) return;
+      setState(() {
+        _error = null;
+        _currentStep = 1;
+      });
+      _pageController.animateToPage(
+        1,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      _saveAll();
+    }
+  }
 
-    setState(() => _saving = true);
+  void _previousStep() {
+    setState(() {
+      _error = null;
+      _currentStep = 0;
+    });
+    _pageController.animateToPage(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  Future<void> _saveAll() async {
+    if (!_ownerFormKey.currentState!.validate()) return;
+
+    final pin = _pinController.text.trim();
+    if (pin.length < 4) {
+      setState(() => _error = 'PIN must be exactly 4 digits.');
+      return;
+    }
+    if (pin != _confirmPinController.text.trim()) {
+      setState(() => _error = 'PINs do not match.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    final db = ref.read(databaseProvider);
+    final uuid = const Uuid();
+    final businessId = uuid.v4();
+    final userId = uuid.v4();
 
     try {
-      final db = ref.read(databaseProvider);
+      // ⭐ Atomic Transaction: Business + User must be created together
+      await db.transaction(() async {
+        await db.into(db.businesses).insert(
+          BusinessesCompanion.insert(
+            id: businessId,
+            name: _nameController.text.trim(),
+            phone: Value(_optionalValue(_phoneController.text)),
+            email: Value(_optionalValue(_emailController.text)),
+            address: Value(_optionalValue(_addressController.text)),
+            currency: Value(_currency),
+          ),
+        );
 
-      // Prevent accidental creation of a second business
-      final existing = await db.select(db.businesses).getSingleOrNull();
+        // Hash PIN using the same salt as AuthProvider
+        final bytes = utf8.encode('craft_pos_salt_$pin');
+        final hash = sha256.convert(bytes).toString();
 
-      if (existing != null) {
-        if (!mounted) return;
-        context.go('/dashboard');
-        return;
-      }
+        await db.into(db.users).insert(
+          UsersCompanion.insert(
+            id: userId,
+            businessId: businessId,
+            name: _ownerNameController.text.trim(),
+            pinHash: hash,
+            role: const Value('owner'),
+          ),
+        );
+      });
 
-      final businessId = const Uuid().v4();
+      if (!mounted) return;
 
-      await db.into(db.businesses).insert(
-        BusinessesCompanion.insert(
-          id: businessId,
-          name: _nameController.text.trim(),
-          phone: Value(_optionalValue(_phoneController.text)),
-          email: Value(_optionalValue(_emailController.text)),
-          address: Value(_optionalValue(_addressController.text)),
-          currency: Value(_currency),
-        ),
+      // ⭐ Auto-login the owner
+      await ref.read(authProvider).login(
+        _ownerNameController.text.trim(),
+        pin,
       );
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Business registered successfully.'),
-          backgroundColor: AppTheme.forest,
-        ),
-      );
-
+      // ⭐ Route directly to dashboard
       context.go('/dashboard');
     } catch (error) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to save business: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
+      setState(() {
+        _saving = false;
+        _error = 'Unable to save setup: $error';
+      });
     }
   }
 
@@ -122,166 +187,295 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-
     return Scaffold(
-      // ← Added Scaffold to give it a proper layout context
-      appBar: AppBar(
-        title: const Text('Business Setup'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => context.go('/dashboard'),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: PageView(
+          controller: _pageController,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            _buildBusinessStep(),
+            _buildOwnerStep(),
+          ],
         ),
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 620),
-            child: Card(
-              child: Padding(
-                padding: EdgeInsets.all(width < 500 ? 20 : 32),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Icon(
-                        Icons.storefront_outlined,
-                        size: 58,
-                        color: AppTheme.forest,
+    );
+  }
+
+  Widget _buildBusinessStep() {
+    final width = MediaQuery.sizeOf(context).width;
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 620),
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(width < 500 ? 20 : 32),
+              child: Form(
+                key: _businessFormKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(
+                      Icons.storefront_outlined,
+                      size: 58,
+                      color: AppTheme.forest,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Set up your business',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tell us a little about your shop.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 28),
+                    TextFormField(
+                      controller: _nameController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: _decoration(
+                        'Business name *',
+                        Icons.business_outlined,
+                        hint: 'e.g. Craft Retail Store',
                       ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Business name is required';
+                        }
+                        if (value.trim().length < 2) {
+                          return 'Enter at least 2 characters';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    TextFormField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: _decoration(
+                        'Phone number',
+                        Icons.phone_outlined,
+                        hint: 'e.g. 0712 345 678',
+                      ),
+                      validator: _validatePhone,
+                    ),
+                    const SizedBox(height: 18),
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: _decoration(
+                        'Email address',
+                        Icons.email_outlined,
+                        hint: 'business@example.com',
+                      ),
+                      validator: _validateEmail,
+                    ),
+                    const SizedBox(height: 18),
+                    TextFormField(
+                      controller: _addressController,
+                      textCapitalization: TextCapitalization.words,
+                      maxLines: 2,
+                      decoration: _decoration(
+                        'Business location',
+                        Icons.location_on_outlined,
+                        hint: 'Town, estate or physical address',
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    DropdownButtonFormField<String>(
+                      initialValue: _currency,
+                      decoration: _decoration(
+                        'Business currency',
+                        Icons.payments_outlined,
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'KES',
+                          child: Text('KES - Kenyan Shilling'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'UGX',
+                          child: Text('UGX - Ugandan Shilling'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'TZS',
+                          child: Text('TZS - Tanzanian Shilling'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'USD',
+                          child: Text('USD - US Dollar'),
+                        ),
+                      ],
+                      onChanged: _saving
+                          ? null
+                          : (value) {
+                        if (value != null) {
+                          setState(() => _currency = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 28),
+                    FilledButton.icon(
+                      onPressed: _nextStep,
+                      icon: const Icon(Icons.arrow_forward),
+                      label: const Text('Next: Create Account'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTheme.forest,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 17),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOwnerStep() {
+    final width = MediaQuery.sizeOf(context).width;
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 620),
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(width < 500 ? 20 : 32),
+              child: Form(
+                key: _ownerFormKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: _saving ? null : _previousStep,
+                        ),
+                        const Spacer(),
+                      ],
+                    ),
+                    const Icon(
+                      Icons.person_outline,
+                      size: 58,
+                      color: AppTheme.forest,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Create your account',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Set up the owner login for your shop.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 28),
+                    TextFormField(
+                      controller: _ownerNameController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: _decoration(
+                        'Owner name *',
+                        Icons.badge_outlined,
+                        hint: 'e.g. Jane Wanjiku',
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Owner name is required';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    TextFormField(
+                      controller: _pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      maxLength: 4,
+                      decoration: _decoration(
+                        '4-digit PIN *',
+                        Icons.lock_outline,
+                        hint: '••••',
+                      ).copyWith(counterText: ''),
+                      validator: (value) {
+                        final v = value?.trim() ?? '';
+                        if (v.length < 4) return 'PIN must be 4 digits';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    TextFormField(
+                      controller: _confirmPinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      maxLength: 4,
+                      decoration: _decoration(
+                        'Confirm PIN *',
+                        Icons.lock_outline,
+                        hint: '••••',
+                      ).copyWith(counterText: ''),
+                      validator: (value) {
+                        final v = value?.trim() ?? '';
+                        if (v.length < 4) return 'Confirm your PIN';
+                        return null;
+                      },
+                    ),
+                    if (_error != null) ...[
                       const SizedBox(height: 16),
                       Text(
-                        'Set up your business',
+                        _error!,
+                        style: const TextStyle(color: Colors.red),
                         textAlign: TextAlign.center,
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tell us a little about your shop. '
-                            'You can update these details later.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 28),
-                      TextFormField(
-                        controller: _nameController,
-                        textCapitalization: TextCapitalization.words,
-                        decoration: _decoration(
-                          'Business name *',
-                          Icons.business_outlined,
-                          hint: 'e.g. Craft Retail Store',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Business name is required';
-                          }
-                          if (value.trim().length < 2) {
-                            return 'Enter at least 2 characters';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                      TextFormField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        decoration: _decoration(
-                          'Phone number',
-                          Icons.phone_outlined,
-                          hint: 'e.g. 0712 345 678',
-                        ),
-                        validator: _validatePhone,
-                      ),
-                      const SizedBox(height: 18),
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: _decoration(
-                          'Email address',
-                          Icons.email_outlined,
-                          hint: 'business@example.com',
-                        ),
-                        validator: _validateEmail,
-                      ),
-                      const SizedBox(height: 18),
-                      TextFormField(
-                        controller: _addressController,
-                        textCapitalization: TextCapitalization.words,
-                        maxLines: 2,
-                        decoration: _decoration(
-                          'Business location',
-                          Icons.location_on_outlined,
-                          hint: 'Town, estate or physical address',
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      DropdownButtonFormField<String>(
-                        initialValue: _currency,
-                        decoration: _decoration(
-                          'Business currency',
-                          Icons.payments_outlined,
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'KES',
-                            child: Text('KES - Kenyan Shilling'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'UGX',
-                            child: Text('UGX - Ugandan Shilling'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'TZS',
-                            child: Text('TZS - Tanzanian Shilling'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'USD',
-                            child: Text('USD - US Dollar'),
-                          ),
-                        ],
-                        onChanged: _saving
-                            ? null
-                            : (value) {
-                          if (value != null) {
-                            setState(() => _currency = value);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 28),
-                      FilledButton.icon(
-                        onPressed: _saving ? null : _saveBusiness,
-                        icon: _saving
-                            ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                            : const Icon(Icons.check_circle_outline),
-                        label: Text(
-                          _saving ? 'Saving business...' : 'Save and continue',
-                        ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.forest,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 17),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Your business information is saved on this device.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
-                  ),
+                    const SizedBox(height: 28),
+                    FilledButton.icon(
+                      onPressed: _saving ? null : _saveAll,
+                      icon: _saving
+                          ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                          : const Icon(Icons.check_circle_outline),
+                      label: Text(
+                        _saving ? 'Finishing setup...' : 'Complete Setup',
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTheme.forest,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 17),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Your shop and account will be created on this device.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ),
               ),
             ),

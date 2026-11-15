@@ -1,6 +1,4 @@
 import 'dart:async';
-// lib/core/services/subscription_service.dart
-
 import 'package:drift/drift.dart';
 import 'package:craft_pos/core/database/app_database.dart';
 import 'package:craft_pos/core/models/subscription_model.dart';

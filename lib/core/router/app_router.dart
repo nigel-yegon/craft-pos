@@ -1,3 +1,5 @@
+// lib/core/router/app_router.dart
+
 import 'package:go_router/go_router.dart';
 
 import '../../core/database/app_database.dart';
@@ -10,7 +12,8 @@ import '../../core/providers/report_provider.dart';
 import '../../core/providers/sales_provider.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/business/business_setup_screen.dart';
-import '../../features/dashboard/dashboard_screen.dart';
+// ⭐ show clauses added to prevent ambiguous imports if files get copy-pasted again
+import '../../features/dashboard/dashboard_screen.dart' show DashboardScreen;
 import '../../features/inventory/inventory_screen.dart';
 import '../../features/inventory/stock_report_screen.dart';
 import '../../features/profile/profile_screen.dart';
@@ -24,7 +27,7 @@ import '../../features/settings/backup_screen.dart';
 import '../../features/settings/expenses_screen.dart';
 import '../../features/settings/notifications_screen.dart';
 import '../../features/settings/settings_screen.dart';
-import '../../features/settings/subscription_screen.dart';
+import '../../features/settings/subscription_screen.dart' show SubscriptionScreen;
 import '../../shared/widgets/app_shell.dart';
 
 Future<GoRouter> createAppRouter(
@@ -83,7 +86,6 @@ Future<GoRouter> createAppRouter(
             builder: (context, state) =>
                 ProfileScreen(provider: businessProvider),
           ),
-
           GoRoute(
             path: '/settings',
             builder: (context, state) => const SettingsScreen(),
@@ -114,7 +116,6 @@ Future<GoRouter> createAppRouter(
               ),
             ],
           ),
-
           GoRoute(
             path: '/products',
             builder: (context, state) => ProductsScreen(
