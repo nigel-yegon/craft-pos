@@ -26,7 +26,7 @@ class BackupHelper {
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(backupFile.path)],
-          text: 'Craft POS Database Backup',
+          text: 'Craft Business Database Backup',
         ),
       );
 
@@ -113,7 +113,7 @@ class BackupHelper {
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(path)],
-          text: 'Craft POS CSV Export',
+          text: 'Craft Business CSV Export',
         ),
       );
     } catch (e) {

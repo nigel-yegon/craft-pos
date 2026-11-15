@@ -33,7 +33,7 @@ class ExportHelper {
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(path)],
-        text: 'Craft POS Sales Export',
+        text: 'Craft Business Sales Export',
       ),
     );
   }

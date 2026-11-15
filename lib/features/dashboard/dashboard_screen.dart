@@ -1085,7 +1085,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           const SizedBox(height: 14),
           Text(
-            'Craft POS — ideas, integrated.',
+            'Craft Business — ideas, integrated.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10.5,

@@ -16,7 +16,7 @@ final currentBusinessIdProvider = Provider<String>((ref) {
   return 'default-business-id';   // used until overridden at startup
 });
 
-/// Base URL for the Craft POS VPS — same host as M-Pesa.
+/// Base URL for the Craft Business VPS — same host as M-Pesa.
 final apiBaseUrlProvider = Provider<String>((ref) {
   return 'https://craft.co.ke/api';
 });
