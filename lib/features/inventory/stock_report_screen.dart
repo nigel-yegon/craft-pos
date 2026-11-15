@@ -404,6 +404,8 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // ⭐ The only export action — tab-aware: "Export Summary" /
+          //    "Export Ledger".
           TextButton.icon(
             onPressed: _isExporting ? null : _exportCurrentTab,
             icon: _isExporting
@@ -519,7 +521,15 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
             ),
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                // ⭐ Bottom padding clears the floating nav pill. The
+                //    bottom "Export Summary PDF" button is gone — this
+                //    is the only clearance needed.
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  0,
+                  20,
+                  AppTheme.navClearance + 24,
+                ),
                 itemCount: rows.length,
                 separatorBuilder: (_, __) => Divider(
                   height: 24,
@@ -601,37 +611,6 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
                     ),
                   );
                 },
-              ),
-            ),
-
-            // ⭐ Bottom export button — clears the floating nav pill.
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                12,
-                20,
-                12 + AppTheme.navClearance,
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _isExporting ? null : _exportSummaryPdf,
-                  icon: const Icon(Icons.picture_as_pdf, size: 18),
-                  label: Text(
-                    _isExporting
-                        ? 'Exporting...'
-                        : 'Export Summary PDF',
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.heroGreen,
-                    side: BorderSide(
-                        color: AppTheme.heroGreen.withValues(alpha: 0.3)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
               ),
             ),
           ],
@@ -784,7 +763,13 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
                   }
 
                   return ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    // ⭐ Bottom padding clears the floating nav pill.
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      0,
+                      16,
+                      AppTheme.navClearance + 24,
+                    ),
                     itemCount: filtered.length,
                     separatorBuilder: (_, __) => Divider(
                       height: 1,
@@ -888,35 +873,6 @@ class _StockReportScreenState extends ConsumerState<StockReportScreen>
                 },
               );
             },
-          ),
-        ),
-
-        // ⭐ Bottom export button for the Ledger tab.
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            12,
-            16,
-            12 + AppTheme.navClearance,
-          ),
-          child: SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _isExporting ? null : _exportLedgerPdf,
-              icon: const Icon(Icons.receipt_long, size: 18),
-              label: Text(
-                _isExporting ? 'Exporting...' : 'Export Ledger PDF',
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.heroGreen,
-                side: BorderSide(
-                    color: AppTheme.heroGreen.withValues(alpha: 0.3)),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
           ),
         ),
       ],

@@ -43,27 +43,45 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
     setState(() {
       _busy = true;
       _status = PaymentStatus.idle;
-      _secondsRemaining = 90;
+      _secondsRemaining = 120; // match STK expiry (90–120s)
     });
 
     final mpesa = ref.read(mpesaServiceProvider);
     final db = ref.read(databaseProvider);
     final subs = SubscriptionService(db);
 
-    // Explicit StreamSubscription so we can cancel on any terminal state.
     StreamSubscription<PaymentStatus>? sub;
+    Timer? hardTimeout;
     bool popped = false;
 
-    // Guarded pop — call exactly once, from whichever path hits a
-    // terminal state first. Prevents double-pop and pop-after-dispose.
     void popOnce(bool? result) {
       if (popped || !mounted) return;
       popped = true;
       Navigator.pop(context, result);
     }
 
+    // Fires when the stream goes silent. Treated like a timeout: persist
+    // and hand off to the reconciler.
+    Future<void> onHardTimeout() async {
+      if (popped) return;
+      try {
+        await subs
+            .recordAttempt(
+          checkoutRequestId: _status.checkoutRequestId ?? '',
+          amount: widget.plan.amountKes,
+          plan: widget.plan.id,
+          phone: _phoneController.text.trim(),
+          state: 'timeout',
+          message: 'Client-side timeout — awaiting reconciliation',
+        )
+            .timeout(const Duration(seconds: 5));
+      } catch (e) {
+        debugPrint('recordAttempt(hardTimeout) failed: $e');
+      }
+      popOnce(null);
+    }
+
     try {
-      // ── Double-charge guard ─────────────────────────────────────
       final attempt = await subs.startAttempt(
         amount: widget.plan.amountKes,
         plan: widget.plan.id,
@@ -71,18 +89,23 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
       );
 
       if (attempt == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('A payment is already in progress. Please wait.'),
-            backgroundColor: AppTheme.burntOrange,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('A payment is already in progress. Please wait.'),
+              backgroundColor: AppTheme.burntOrange,
+            ),
+          );
+        }
         popOnce(false);
         return;
       }
 
-      // ── Stream + poll ───────────────────────────────────────────
+      // ⭐ Hard deadline: 120s wall-clock, independent of the stream.
+      hardTimeout = Timer(const Duration(seconds: 120), () {
+        onHardTimeout();
+      });
+
       final completer = Completer<void>();
 
       sub = mpesa
@@ -99,13 +122,11 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
 
           setState(() {
             _status = s;
-            if (s.state == PaymentState.awaitingPin &&
-                _uiTimer == null) {
+            if (s.state == PaymentState.awaitingPin && _uiTimer == null) {
               _startPollingCountdown();
             }
           });
 
-          // Link the checkoutRequestId to the pending attempt.
           if (s.state == PaymentState.awaitingPin &&
               s.checkoutRequestId != null) {
             try {
@@ -122,8 +143,7 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
           }
 
           if (s.state == PaymentState.success) {
-            // Persist first, then pop. Persistence activates the
-            // subscription — timeout so a slow DB can't stall the pop.
+            hardTimeout?.cancel();
             try {
               await subs
                   .recordAttempt(
@@ -139,20 +159,18 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
             } catch (e) {
               debugPrint('recordAttempt(success) failed: $e');
             }
-
             try {
               invalidateSubscription(ref);
             } catch (e) {
               debugPrint('invalidateSubscription failed: $e');
             }
-
             popOnce(true);
             if (!completer.isCompleted) completer.complete();
-            await sub?.cancel();
             return;
           }
 
           if (s.state == PaymentState.failed) {
+            hardTimeout?.cancel();
             try {
               await subs
                   .recordAttempt(
@@ -169,11 +187,11 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
             }
             popOnce(false);
             if (!completer.isCompleted) completer.complete();
-            await sub?.cancel();
             return;
           }
 
           if (s.state == PaymentState.timeout) {
+            hardTimeout?.cancel();
             try {
               await subs
                   .recordAttempt(
@@ -188,33 +206,35 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
             } catch (e) {
               debugPrint('recordAttempt(timeout) failed: $e');
             }
-            // null = "still pending" — the screen shows the pending
-            // banner and the reconciler finishes the job.
             popOnce(null);
             if (!completer.isCompleted) completer.complete();
-            await sub?.cancel();
             return;
           }
         },
         onError: (e) async {
           debugPrint('payment stream error: $e');
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Payment failed: $e'),
-              backgroundColor: AppTheme.burntOrange,
-            ),
-          );
+          hardTimeout?.cancel();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Payment failed: $e'),
+                backgroundColor: AppTheme.burntOrange,
+              ),
+            );
+          }
           popOnce(false);
           if (!completer.isCompleted) completer.complete();
         },
         onDone: () {
-          if (!completer.isCompleted) completer.complete();
+          // Stream ended without a terminal state → treat as timeout.
+          if (!completer.isCompleted) {
+            if (!popped) onHardTimeout();
+            completer.complete();
+          }
         },
         cancelOnError: false,
       );
 
-      // Wait for the stream to deliver a terminal event or be cancelled.
       await completer.future;
     } catch (e) {
       debugPrint('_startPayment error: $e');
@@ -228,11 +248,14 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
         popOnce(false);
       }
     } finally {
-      // Always clean up: cancel the stream, stop the countdown, clear busy.
+      // ⭐ Guaranteed cleanup regardless of which path resolved.
+      hardTimeout?.cancel();
       await sub?.cancel();
       _uiTimer?.cancel();
       _uiTimer = null;
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 

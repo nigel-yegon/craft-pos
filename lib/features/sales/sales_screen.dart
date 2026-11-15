@@ -507,10 +507,24 @@ class _SalesScreenState extends State<SalesScreen> {
           onPressed: () => context.go('/dashboard'),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.pending_actions),
-            tooltip: 'Held Orders',
-            onPressed: _openHeldOrders,
+          // ⭐ Held Orders button with a live badge showing the count.
+          StreamBuilder<List<HeldOrder>>(
+            stream: widget.salesProvider.heldOrdersStream,
+            builder: (context, snapshot) {
+              final count = snapshot.data?.length ?? 0;
+              return IconButton(
+                tooltip: 'Held Orders',
+                onPressed: _openHeldOrders,
+                icon: count > 0
+                    ? Badge(
+                  label: Text('$count'),
+                  backgroundColor: AppTheme.burntOrange,
+                  textColor: Colors.white,
+                  child: const Icon(Icons.pending_actions),
+                )
+                    : const Icon(Icons.pending_actions),
+              );
+            },
           ),
         ],
       ),
