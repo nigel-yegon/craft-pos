@@ -807,8 +807,14 @@ class _SalesScreenState extends State<SalesScreen> {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        // ⭐ Light green panel — distinct from the white product grid and
+        //    the white background, but still on the app's palette.
+        color: AppTheme.softMint,
         borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: AppTheme.heroGreen.withValues(alpha: 0.15),
+          width: 0.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: AppTheme.deepForest.withValues(alpha: 0.08),
@@ -819,6 +825,7 @@ class _SalesScreenState extends State<SalesScreen> {
       ),
       child: Column(
         children: [
+          // ─── Header ────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
             child: Row(
@@ -830,8 +837,8 @@ class _SalesScreenState extends State<SalesScreen> {
                       'Current order',
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.inkBlack,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -840,13 +847,14 @@ class _SalesScreenState extends State<SalesScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: AppTheme.surfaceMuted,
+                          // Slightly stronger contrast against the mint panel.
+                          color: AppTheme.heroGreen.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
                           Icons.keyboard_arrow_down,
                           size: 18,
-                          color: AppTheme.textPrimary,
+                          color: AppTheme.heroGreen,
                         ),
                       ),
                     ),
@@ -855,22 +863,42 @@ class _SalesScreenState extends State<SalesScreen> {
                 if (_cart.isNotEmpty)
                   IconButton(
                     icon: const Icon(Icons.delete_outline,
-                        color: AppTheme.textMuted),
+                        color: AppTheme.heroGreen),
+                    tooltip: 'Clear cart',
                     onPressed: () => setState(() => _cart.clear()),
                   ),
               ],
             ),
           ),
-          const Divider(height: 1, color: AppTheme.surfaceMuted),
+          Divider(
+            height: 1,
+            color: AppTheme.heroGreen.withValues(alpha: 0.15),
+          ),
           Expanded(
             child: _cart.isEmpty
-                ? const Center(
-              child: Text('Your cart is empty',
-                  style: TextStyle(
-                      color: AppTheme.textMuted, fontSize: 13)),
+                ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.shopping_cart_outlined,
+                    size: 32,
+                    color: AppTheme.heroGreen.withValues(alpha: 0.4),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your cart is empty',
+                    style: TextStyle(
+                      color: AppTheme.heroGreen.withValues(alpha: 0.6),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             )
                 : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               itemCount: _cart.length,
               itemBuilder: (context, index) {
                 final item = _cart[index];
@@ -881,9 +909,15 @@ class _SalesScreenState extends State<SalesScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color:
-                      AppTheme.surfaceMuted.withValues(alpha: 0.5),
+                      // ⭐ White rows on the mint panel — each item
+                      //    reads as a distinct card.
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color:
+                        AppTheme.heroGreen.withValues(alpha: 0.1),
+                        width: 0.5,
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -897,7 +931,7 @@ class _SalesScreenState extends State<SalesScreen> {
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
-                                  color: AppTheme.textPrimary,
+                                  color: AppTheme.inkBlack,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -911,9 +945,12 @@ class _SalesScreenState extends State<SalesScreen> {
                             ],
                           ),
                         ),
+                        // Quantity stepper — subtle white pill with
+                        // mint hover.
                         Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppTheme.softMint
+                                .withValues(alpha: 0.6),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Row(
@@ -923,7 +960,7 @@ class _SalesScreenState extends State<SalesScreen> {
                                 icon: const Icon(
                                     Icons.remove_rounded,
                                     size: 18),
-                                color: AppTheme.textPrimary,
+                                color: AppTheme.heroGreen,
                                 onPressed: () =>
                                     _removeFromCart(index),
                                 constraints: const BoxConstraints(
@@ -937,13 +974,14 @@ class _SalesScreenState extends State<SalesScreen> {
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 14,
+                                    color: AppTheme.inkBlack,
                                   ),
                                 ),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.add_rounded,
                                     size: 18),
-                                color: AppTheme.primaryGreen,
+                                color: AppTheme.heroGreen,
                                 onPressed: () =>
                                     _addToCart(item.product),
                                 constraints: const BoxConstraints(
@@ -959,7 +997,11 @@ class _SalesScreenState extends State<SalesScreen> {
               },
             ),
           ),
-          const Divider(height: 1, color: AppTheme.surfaceMuted),
+          Divider(
+            height: 1,
+            color: AppTheme.heroGreen.withValues(alpha: 0.15),
+          ),
+          // ─── Footer: total + actions ────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(
               16,
@@ -972,16 +1014,20 @@ class _SalesScreenState extends State<SalesScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Total',
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textSecondary)),
+                    Text(
+                      'Total',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.heroGreen.withValues(alpha: 0.7),
+                      ),
+                    ),
                     Text(
                       'KSh ${(_cartTotalMinor / 100).toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: AppTheme.inkBlack,
                         letterSpacing: -0.4,
                       ),
                     ),
@@ -997,10 +1043,14 @@ class _SalesScreenState extends State<SalesScreen> {
                             size: 18),
                         label: const Text('Hold'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.textPrimary,
-                          side: const BorderSide(
-                              color: AppTheme.surfaceMuted),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          foregroundColor: AppTheme.heroGreen,
+                          side: BorderSide(
+                            color: AppTheme.heroGreen
+                                .withValues(alpha: 0.3),
+                          ),
+                          backgroundColor: Colors.white,
+                          padding:
+                          const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(999),
                           ),
@@ -1013,6 +1063,15 @@ class _SalesScreenState extends State<SalesScreen> {
                         onPressed: _cart.isEmpty ? null : _payNow,
                         icon: const Icon(Icons.check, size: 18),
                         label: const Text('Pay'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.brightGreen,
+                          foregroundColor: AppTheme.inkBlack,
+                          padding:
+                          const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
                       ),
                     ),
                   ],

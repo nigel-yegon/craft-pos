@@ -76,15 +76,16 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   }
 
   Future<void> _handleRestore() async {
-    // 1. Show a warning dialog
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text(
           'Restore Database?',
-          style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.inkBlack),
+          style: TextStyle(
+              fontWeight: FontWeight.w700, color: AppTheme.inkBlack),
         ),
         content: const Text(
           'This will completely overwrite your current data with the uploaded file. '
@@ -98,8 +99,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.burntOrange),
-            child: const Text('Restore Now', style: TextStyle(color: Colors.white)),
+            style:
+            ElevatedButton.styleFrom(backgroundColor: AppTheme.burntOrange),
+            child:
+            const Text('Restore Now', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -115,14 +118,15 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     setState(() => _isProcessing = false);
 
     if (success) {
-      // Show a dialog telling them to restart
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: const Text('Restore Staged', style: TextStyle(color: AppTheme.inkBlack)),
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: const Text('Restore Staged',
+              style: TextStyle(color: AppTheme.inkBlack)),
           content: const Text(
             'Your backup has been staged. Please completely close and restart the app to apply the restored data.',
             style: TextStyle(color: AppTheme.onLightSecondary),
@@ -146,13 +150,153 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   }
 
   void _handleCloudBackup() {
-    // Placeholder for future cloud integration
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Cloud sync will be available in a future update.'),
         backgroundColor: AppTheme.midnightViolet,
       ),
     );
+  }
+
+  // ⭐ Reset flow — typed-DELETE confirmation, wipe, route to /setup.
+  Future<void> _handleResetShop() async {
+    final textController = TextEditingController();
+    String? errorText;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24)),
+              title: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      color: AppTheme.burntOrange),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Reset shop?',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.inkBlack),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'This will permanently delete:',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.inkBlack),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '• Products and categories\n'
+                        '• Sales and transactions\n'
+                        '• Stock movements\n'
+                        '• Held orders\n'
+                        '• Expenses and recurring expenses\n'
+                        '• Users and shop settings\n'
+                        '• Subscription and notifications',
+                    style: TextStyle(color: AppTheme.onLightSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'This cannot be undone. Type DELETE below to confirm.',
+                    style: TextStyle(
+                        fontSize: 12, color: AppTheme.onLightMuted),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: textController,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: InputDecoration(
+                      labelText: 'Type DELETE',
+                      errorText: errorText,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (_) {
+                      if (errorText != null) {
+                        setState(() => errorText = null);
+                      }
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (textController.text.trim() != 'DELETE') {
+                      setState(() => errorText = 'Type DELETE exactly');
+                      return;
+                    }
+                    Navigator.pop(ctx, true);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.burntOrange,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Delete everything'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    textController.dispose();
+
+    if (confirmed != true || !mounted) return;
+
+    // Blocking spinner while the wipe runs.
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: AppTheme.burntOrange),
+      ),
+    );
+
+    try {
+      final db = ref.read(databaseProvider);
+      await db.wipeAllData();
+
+      if (!mounted) return;
+
+      // Close the spinner.
+      Navigator.of(context, rootNavigator: true).pop();
+
+      if (!mounted) return;
+
+      // Route to /setup so the user creates a fresh business.
+      // The stale AuthProvider._currentUser is overwritten when the
+      // user completes setup and calls createUser().
+      context.go('/setup');
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to reset shop: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -253,18 +397,21 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               children: [
                 const Text(
                   'Upload a previously saved .db or .sqlite backup file to restore your shop data.',
-                  style: TextStyle(fontSize: 13, color: AppTheme.onLightSecondary),
+                  style: TextStyle(
+                      fontSize: 13, color: AppTheme.onLightSecondary),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: _isProcessing ? null : _handleRestore,
-                    icon: const Icon(Icons.upload, size: 18, color: AppTheme.burntOrange),
+                    icon: const Icon(Icons.upload,
+                        size: 18, color: AppTheme.burntOrange),
                     label: const Text('Upload Backup File'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.burntOrange,
-                      side: const BorderSide(color: AppTheme.burntOrange),
+                      side:
+                      const BorderSide(color: AppTheme.burntOrange),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),
@@ -296,10 +443,12 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: AppTheme.midnightViolet.withValues(alpha: 0.1),
+                              color: AppTheme.midnightViolet
+                                  .withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.cloud_outlined, color: AppTheme.midnightViolet, size: 20),
+                            child: const Icon(Icons.cloud_outlined,
+                                color: AppTheme.midnightViolet, size: 20),
                           ),
                           const SizedBox(width: 12),
                           const Text(
@@ -313,7 +462,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                         ],
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: AppTheme.midnightViolet,
                           borderRadius: BorderRadius.circular(999),
@@ -333,7 +483,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   const SizedBox(height: 12),
                   const Text(
                     'Automatically sync your data to the cloud for real-time protection and easy migration to new devices.',
-                    style: TextStyle(fontSize: 13, color: AppTheme.onLightSecondary),
+                    style: TextStyle(
+                        fontSize: 13, color: AppTheme.onLightSecondary),
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
@@ -342,7 +493,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                       onPressed: _handleCloudBackup,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.midnightViolet,
-                        side: const BorderSide(color: AppTheme.midnightViolet),
+                        side: const BorderSide(
+                            color: AppTheme.midnightViolet),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       child: const Text('Notify Me'),
@@ -360,12 +512,14 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               decoration: BoxDecoration(
                 color: AppTheme.burntOrange.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.burntOrange.withValues(alpha: 0.2)),
+                border: Border.all(
+                    color: AppTheme.burntOrange.withValues(alpha: 0.2)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline, color: AppTheme.burntOrange, size: 20),
+                  const Icon(Icons.info_outline,
+                      color: AppTheme.burntOrange, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -380,6 +534,84 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                 ],
               ),
             ),
+
+            // ═══ RESET SHOP (danger zone) ═══
+            const SizedBox(height: 32),
+            const Padding(
+              padding: EdgeInsets.only(left: 4, bottom: 8),
+              child: Text(
+                'RESET & CLEANUP',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: AppTheme.burntOrange,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppTheme.burntOrange.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppTheme.burntOrange.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.burntOrange
+                              .withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.delete_forever_outlined,
+                            color: AppTheme.burntOrange, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Reset Shop',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.burntOrange,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Permanently delete all products, sales, transactions, expenses, and shop settings. '
+                        'You will be taken back to setup to start fresh.',
+                    style: TextStyle(
+                        fontSize: 13, color: AppTheme.onLightSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isProcessing ? null : _handleResetShop,
+                      icon: const Icon(Icons.restart_alt,
+                          size: 18, color: AppTheme.burntOrange),
+                      label: const Text('Delete all data & start over'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.burntOrange,
+                        side:
+                        const BorderSide(color: AppTheme.burntOrange),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -397,7 +629,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.inkBlack.withValues(alpha: 0.08), width: 1),
+        border: Border.all(
+            color: AppTheme.inkBlack.withValues(alpha: 0.08), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

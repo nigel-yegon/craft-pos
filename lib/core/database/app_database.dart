@@ -92,7 +92,31 @@ class AppDatabase extends _$AppDatabase {
       ..where((p) => p.businessId.equals(businessId) & p.isActive.equals(true));
     return (await query.get()).length;
   }
-
+  /// Deletes every row from every application table.
+  ///
+  /// Used by the Backup screen's "Reset shop" flow so a shop can start
+  /// from scratch without uninstalling the app. Runs in one transaction —
+  /// either all rows are deleted or none. Schema and migrations survive.
+  Future<void> wipeAllData() async {
+    await transaction(() async {
+      // FK-safe order: children before parents. The `PRAGMA foreign_keys = ON`
+      // in `beforeOpen` enforces this.
+      await delete(salePayments).go();
+      await delete(saleItems).go();
+      await delete(sales).go();
+      await delete(stockMovements).go();
+      await delete(heldOrders).go();
+      await delete(expenses).go();
+      await delete(recurringExpenses).go();
+      await delete(paymentAttempts).go();
+      await delete(subscriptions).go();
+      await delete(notifications).go();
+      await delete(products).go();
+      await delete(categories).go();
+      await delete(users).go();
+      await delete(businesses).go();
+    });
+  }
   Future<int> getTodaySales(String businessId) async {
     final now = DateTime.now();
     final start = DateTime(now.year, now.month, now.day);

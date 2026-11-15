@@ -1,3 +1,5 @@
+// lib/features/reports/reports_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -243,7 +245,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
       ),
       body: _isLoading
           ? const Center(
-          child: CircularProgressIndicator(color: AppTheme.heroGreen))
+        child: CircularProgressIndicator(color: AppTheme.heroGreen),
+      )
           : RefreshIndicator(
         onRefresh: () => _loadData(_tabController.index),
         color: AppTheme.heroGreen,
@@ -253,13 +256,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
             24,
             24,
             24,
-            // ⭐ Clear the floating nav pill at the bottom.
-            AppTheme.navClearance + 120,
+            // Clear the floating nav pill — 96 (nav) + 24 (gap).
+            AppTheme.navClearance,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            // ⭐ Keep the Column intrinsic-height so the scroll view
-            //    doesn't clip in profile / release builds.
+            // ⭐ Intrinsic height so nothing clips in release builds.
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
@@ -274,47 +276,59 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
               const SizedBox(height: 16),
 
               // ─── Summary cards 2×2 ───
+              // ⭐ Each _buildMetricCard is wrapped in Expanded()
+              //    *outside* any GestureDetector so the Row has
+              //    valid flex children — no more release-mode collapse.
               Row(
                 children: [
-                  _buildMetricCard(
-                    'Sales',
-                    _formatKsh(_summary['sales'] ?? 0),
-                    const [AppTheme.heroGreen, AppTheme.midGreen],
-                    const CurrencyIcon(color: Colors.white, size: 20),
+                  Expanded(
+                    child: _buildMetricCard(
+                      'Sales',
+                      _formatKsh(_summary['sales'] ?? 0),
+                      const [AppTheme.heroGreen, AppTheme.midGreen],
+                      const CurrencyIcon(
+                          color: Colors.white, size: 20),
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  _buildMetricCard(
-                    'Profit',
-                    _formatKsh(_summary['profit'] ?? 0),
-                    const [AppTheme.midGreen, AppTheme.heroGreen],
-                    const Icon(Icons.trending_up,
-                        size: 20, color: Colors.white),
+                  Expanded(
+                    child: _buildMetricCard(
+                      'Profit',
+                      _formatKsh(_summary['profit'] ?? 0),
+                      const [AppTheme.midGreen, AppTheme.heroGreen],
+                      const Icon(Icons.trending_up,
+                          size: 20, color: Colors.white),
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  _buildMetricCard(
-                    'Stock Value',
-                    _formatKsh(_summary['stockValue'] ?? 0),
-                    const [AppTheme.forestDeep, AppTheme.midGreen],
-                    const Icon(Icons.inventory,
-                        size: 20, color: Colors.white),
+                  Expanded(
+                    child: _buildMetricCard(
+                      'Stock Value',
+                      _formatKsh(_summary['stockValue'] ?? 0),
+                      const [AppTheme.forestDeep, AppTheme.midGreen],
+                      const Icon(Icons.inventory,
+                          size: 20, color: Colors.white),
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  GestureDetector(
-                    onTap: () =>
-                        context.push('/reports/transactions'),
-                    child: _buildMetricCard(
-                      'Transactions',
-                      '${_salesInRange.length}',
-                      const [
-                        AppTheme.midnightViolet,
-                        Color(0xFF2D1823),
-                      ],
-                      const Icon(Icons.receipt_long,
-                          size: 20, color: Colors.white),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () =>
+                          context.push('/reports/transactions'),
+                      child: _buildMetricCard(
+                        'Transactions',
+                        '${_salesInRange.length}',
+                        const [
+                          AppTheme.midnightViolet,
+                          Color(0xFF2D1823),
+                        ],
+                        const Icon(Icons.receipt_long,
+                            size: 20, color: Colors.white),
+                      ),
                     ),
                   ),
                 ],
@@ -366,7 +380,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                 const SizedBox(height: 24),
               ],
 
-              // ⭐ ─── Sales trend chart (moved up) ───
+              // ─── Sales Trend chart ───
               const Text(
                 'Sales Trend (Last 7 Days)',
                 style: TextStyle(
@@ -383,14 +397,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                      color:
-                      AppTheme.inkBlack.withValues(alpha: 0.06)),
+                      color: AppTheme.inkBlack
+                          .withValues(alpha: 0.06)),
                 ),
                 child: SizedBox(height: 220, child: _buildChart()),
               ),
               const SizedBox(height: 24),
 
-              // ⭐ ─── Money Position Card (moved down) ───
+              // ─── Money Position card ───
               _buildMoneyPositionCard(),
               const SizedBox(height: 24),
 
@@ -435,8 +449,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
                   child: const Center(
                     child: Text(
                       'No transactions for this period',
-                      style:
-                      TextStyle(color: AppTheme.onLightMuted),
+                      style: TextStyle(color: AppTheme.onLightMuted),
                     ),
                   ),
                 )
@@ -790,57 +803,56 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
   }
 
   // ─── Metric Card (Gradient) ───
+  // ⭐ Returns a plain Container — never Expanded. The caller wraps it.
   Widget _buildMetricCard(
       String title,
       String value,
       List<Color> gradientColors,
       Widget iconWidget,
       ) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: gradientColors,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradientColors,
+        ),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              iconWidget,
+              Icon(Icons.arrow_outward,
+                  size: 14,
+                  color: Colors.white.withValues(alpha: 0.4)),
+            ],
           ),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                iconWidget,
-                Icon(Icons.arrow_outward,
-                    size: 14,
-                    color: Colors.white.withValues(alpha: 0.4)),
-              ],
+          const SizedBox(height: 16),
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 9,
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.7),
             ),
-            const SizedBox(height: 16),
-            Text(
-              title.toUpperCase(),
-              style: TextStyle(
-                fontSize: 9,
-                letterSpacing: 1.2,
-                fontWeight: FontWeight.w600,
-                color: Colors.white.withValues(alpha: 0.7),
-              ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              letterSpacing: -0.5,
             ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: -0.5,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

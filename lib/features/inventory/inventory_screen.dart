@@ -23,7 +23,7 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   String _search = '';
-  String _stockStatus = 'all'; // 'all' | 'in' | 'low' | 'out'
+  String _stockStatus = 'all';
   String _sortBy = 'name_asc';
 
   bool get _hasActiveFilters =>
@@ -58,9 +58,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return parts.isEmpty ? 'All products' : parts.join(' • ');
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // Filter sheet
-  // ═══════════════════════════════════════════════════════════════════
   void _showFilterSheet() {
     showModalBottomSheet(
       context: context,
@@ -192,14 +189,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          // ⭐ Stock Summary — opens /reports/stock on the Summary tab.
           IconButton(
             tooltip: 'Stock Summary',
             icon: const Icon(Icons.analytics_outlined,
                 color: AppTheme.heroGreen),
             onPressed: () => context.push('/reports/stock', extra: 0),
           ),
-          // ⭐ Ledger — opens /reports/stock on the Ledger tab.
           IconButton(
             tooltip: 'Stock Ledger',
             icon: const Icon(Icons.receipt_long_outlined,

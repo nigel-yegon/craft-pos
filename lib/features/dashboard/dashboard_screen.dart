@@ -38,8 +38,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // Owner name shown under the greeting.
   String _ownerName = '';
 
-  // ⭐ Branding slider state.
+  // Branding slider state.
   int _brandingSlideIndex = 0;
+
+  // ⭐ Recent transactions
+  List<Sale> _recentSales = const [];
+  final Map<String, List<RecentSaleLine>> _recentLineCache = {};
 
   final _currencyFormatter = NumberFormat.currency(
     locale: 'en_KE',
@@ -53,6 +57,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _loadDashboardData();
     _loadOwnerName();
     _syncNotifications();
+    _loadRecentSales();
   }
 
   Future<void> _syncNotifications() async {
@@ -83,6 +88,43 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (owner != null && owner.name.trim().isNotEmpty && mounted) {
       setState(() => _ownerName = owner.name.trim());
     }
+  }
+
+  Future<void> _loadRecentSales() async {
+    final db = ref.read(databaseProvider);
+    final rows = await (db.select(db.sales)
+      ..where((s) => s.businessId.equals(widget.businessId))
+      ..where((s) => s.status.equals('completed'))
+      ..orderBy([(s) => OrderingTerm.desc(s.createdAt)])
+      ..limit(3))
+        .get();
+    if (!mounted) return;
+    setState(() => _recentSales = rows);
+  }
+
+  Future<List<RecentSaleLine>> _loadRecentSaleLines(Sale sale) async {
+    if (_recentLineCache.containsKey(sale.id)) {
+      return _recentLineCache[sale.id]!;
+    }
+    final db = ref.read(databaseProvider);
+    final items = await (db.select(db.saleItems)
+      ..where((i) => i.saleId.equals(sale.id)))
+        .get();
+
+    final lines = <RecentSaleLine>[];
+    for (final item in items) {
+      final p = await (db.select(db.products)
+        ..where((prod) => prod.id.equals(item.productId)))
+          .getSingleOrNull();
+      lines.add(RecentSaleLine(
+        productName: p?.name ?? '(deleted product)',
+        quantityMilli: item.quantityMilli,
+        unitPriceMinor: item.unitPriceMinor,
+        lineTotalMinor: item.lineTotalMinor,
+      ));
+    }
+    _recentLineCache[sale.id] = lines;
+    return lines;
   }
 
   Future<void> _loadDashboardData() async {
@@ -149,6 +191,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     });
 
     _syncNotifications();
+    _loadRecentSales();
   }
 
   String _greeting() {
@@ -156,6 +199,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (hour < 12) return 'Good morning';
     if (hour < 17) return 'Good afternoon';
     return 'Good evening';
+  }
+
+  String _prettyMethod(String m) {
+    switch (m) {
+      case 'cash':
+        return 'Cash';
+      case 'mpesa':
+        return 'M-Pesa';
+      case 'cash+mpesa':
+        return 'Cash + M-Pesa';
+      default:
+        return m;
+    }
   }
 
   Future<void> _confirmLogout(BuildContext context) async {
@@ -198,11 +254,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           backgroundColor: AppTheme.heroGreen,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(
-              0,
-              0,
-              0,
-              MediaQuery.of(context).padding.bottom + 100,
+            padding: EdgeInsets.only(
+              bottom: AppTheme.navClearance,   // 96 dp — just clears the pill
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -577,15 +630,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               ),
                               itemBuilder: (context, index) => items[index],
                             );
-
                           },
-
-
                         ),
                       ],
                     ),
-
-
                   ),
                 ),
 
@@ -670,7 +718,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ),
 
-
                 // ═══ LOW STOCK ═══
                 if (_lowStockCount > 0)
                   Padding(
@@ -713,11 +760,274 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ),
                     ),
                   ),
-                // ⭐ Branding slider
-              ],
 
+                // ═══ RECENT TRANSACTIONS ═══
+                if (_recentSales.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Recent Transactions',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.inkBlack,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () =>
+                                  context.push('/reports/transactions'),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                tapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const Text(
+                                'View all',
+                                style: TextStyle(
+                                  color: AppTheme.heroGreen,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ..._recentSales.map(_buildRecentSaleTile),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // ⭐ Recent sale tile — expandable, lazy-loads line items.
+  Widget _buildRecentSaleTile(Sale sale) {
+    final isSplit = (sale.paymentMethod ?? '').contains('+');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+            color: AppTheme.inkBlack.withValues(alpha: 0.08)),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.softMint,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.receipt,
+              color: AppTheme.heroGreen,
+              size: 18,
+            ),
+          ),
+          title: Text(
+            DateFormat('dd MMM, HH:mm').format(sale.createdAt),
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: AppTheme.inkBlack,
+            ),
+          ),
+          subtitle: Text(
+            _prettyMethod(sale.paymentMethod ?? 'cash'),
+            style: const TextStyle(
+                fontSize: 11, color: AppTheme.onLightMuted),
+          ),
+          trailing: Text(
+            _currencyFormatter.format(sale.totalAmountMinor / 100),
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: AppTheme.inkBlack,
+            ),
+          ),
+          children: [
+            Divider(
+                color: AppTheme.inkBlack.withValues(alpha: 0.06),
+                height: 1),
+            const SizedBox(height: 10),
+            FutureBuilder<List<RecentSaleLine>>(
+              future: _loadRecentSaleLines(sale),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: Center(
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child:
+                        CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  );
+                }
+
+                final lines = snapshot.data!;
+                if (lines.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'No line items recorded.',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.onLightMuted),
+                    ),
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Items',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                        color: AppTheme.onLightSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    ...lines.map((line) {
+                      final qty = line.quantityMilli / 1000.0;
+                      final qtyLabel = qty % 1 == 0
+                          ? qty.toStringAsFixed(0)
+                          : qty.toStringAsFixed(2);
+                      return Padding(
+                        padding:
+                        const EdgeInsets.symmetric(vertical: 3),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                line.productName,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            Text(
+                              '$qtyLabel × ${_currencyFormatter.format(line.unitPriceMinor / 100)}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.onLightMuted,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            SizedBox(
+                              width: 80,
+                              child: Text(
+                                _currencyFormatter
+                                    .format(line.lineTotalMinor / 100),
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+
+                    if (isSplit) ...[
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Paid with',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                          color: AppTheme.onLightSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      FutureBuilder<List<SalePayment>>(
+                        future: (() async {
+                          final db = ref.read(databaseProvider);
+                          return (db.select(db.salePayments)
+                            ..where((p) => p.saleId.equals(sale.id)))
+                              .get();
+                        })(),
+                        builder: (context, snap) {
+                          if (!snap.hasData) return const SizedBox();
+                          return Column(
+                            children: snap.data!.map((p) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 2),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      p.method == 'cash'
+                                          ? Icons.money
+                                          : Icons.phone_android,
+                                      size: 12,
+                                      color: AppTheme.heroGreen,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        _prettyMethod(p.method),
+                                        style: const TextStyle(
+                                            fontSize: 11),
+                                      ),
+                                    ),
+                                    if (p.reference != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                            right: 6),
+                                        child: Text(
+                                          p.reference!,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color:
+                                            AppTheme.onLightMuted,
+                                          ),
+                                        ),
+                                      ),
+                                    Text(
+                                      _currencyFormatter
+                                          .format(p.amountMinor / 100),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -1053,6 +1363,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RECENT SALE LINE MODEL
+// ═══════════════════════════════════════════════════════════════════
+
+class RecentSaleLine {
+  final String productName;
+  final int quantityMilli;
+  final int unitPriceMinor;
+  final int lineTotalMinor;
+
+  const RecentSaleLine({
+    required this.productName,
+    required this.quantityMilli,
+    required this.unitPriceMinor,
+    required this.lineTotalMinor,
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════

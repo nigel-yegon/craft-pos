@@ -343,9 +343,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       appBar: AppBar(
         title: const Text('Products'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.category_outlined),
-            tooltip: 'Manage Categories',
+          TextButton.icon(
             onPressed: () {
               Navigator.push(
                 context,
@@ -355,7 +353,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ),
               );
             },
+            icon: const Icon(Icons.category_outlined,
+                color: AppTheme.heroGreen, size: 20),
+            label: const Text(
+              'Categories',
+              style: TextStyle(
+                color: AppTheme.heroGreen,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(

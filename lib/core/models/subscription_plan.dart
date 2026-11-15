@@ -25,7 +25,7 @@ class SubscriptionPlan {
     SubscriptionPlan(
       id: 'weekly',
       title: 'Weekly',
-      amountKes: 1,
+      amountKes: 50,
       priceLabel: 'KSh 50',
       period: '/ week',
       description: 'Perfect for testing the waters.',

@@ -16,6 +16,7 @@ import '../../features/inventory/stock_report_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/products/products_screen.dart';
 import '../../features/reports/reports_screen.dart';
+import '../../features/reports/transactions_screen.dart';
 import '../../features/sales/held_orders_screen.dart';
 import '../../features/sales/sales_screen.dart';
 import '../../features/settings/aob_screen.dart';
@@ -25,15 +26,6 @@ import '../../features/settings/notifications_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/settings/subscription_screen.dart';
 import '../../shared/widgets/app_shell.dart';
-import '../../features/reports/transactions_screen.dart';
-
-// (imports — keep all existing ones, ensure stock_report_screen.dart is present)
-import '../../features/inventory/inventory_screen.dart';
-import '../../features/inventory/stock_report_screen.dart';   // ⭐ must be present
-// ... other imports ...
-
-// Inside the /reports GoRoute's routes:
-
 
 Future<GoRouter> createAppRouter(
     AppDatabase db, {
@@ -58,11 +50,9 @@ Future<GoRouter> createAppRouter(
       final isGoingToLogin = state.matchedLocation == '/login';
       final isGoingToSetup = state.matchedLocation == '/setup';
 
-      // If not logged in and not going to login/setup, force login
       if (!isLoggedIn && !isGoingToLogin && !isGoingToSetup) {
         return '/login';
       }
-      // If logged in and trying to access login, go to dashboard
       if (isLoggedIn && isGoingToLogin) {
         return '/dashboard';
       }
@@ -94,7 +84,6 @@ Future<GoRouter> createAppRouter(
                 ProfileScreen(provider: businessProvider),
           ),
 
-          // ⭐ Settings Routes — duplicate 'backup' route removed
           GoRoute(
             path: '/settings',
             builder: (context, state) => const SettingsScreen(),
@@ -158,7 +147,6 @@ Future<GoRouter> createAppRouter(
             builder: (context, state) =>
                 ReportsScreen(provider: reportProvider),
             routes: [
-              // Inside the /reports GoRoute's routes: [...]
               GoRoute(
                 path: 'stock',
                 builder: (context, state) {
@@ -176,7 +164,8 @@ Future<GoRouter> createAppRouter(
                     TransactionsScreen(provider: reportProvider),
               ),
             ],
-          ),     ],
+          ),
+        ],
       ),
     ],
   );

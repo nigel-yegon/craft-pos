@@ -21,16 +21,16 @@ class SeedData {
       return; // already seeded (or user's real business)
     }
 
-    const businessId = 'demo-business-id';
+    const businessId = 'business-id';
     final now = DateTime.now();
 
     // ─── Business ───
     await db.into(db.businesses).insert(
       BusinessesCompanion.insert(
         id: businessId,
-        name: 'Craft Demo Shop',
+        name: 'Craft Studios',
         phone: const Value('0712 345 678'),
-        email: const Value('hello@craftdemo.co.ke'),
+        email: const Value('hello@craft.co.ke'),
         address: const Value('Moi Avenue, Nairobi'),
         currency: const Value('KES'),
       ),
@@ -41,7 +41,7 @@ class SeedData {
       UsersCompanion.insert(
         id: _uuid.v4(),
         businessId: businessId,
-        name: 'Demo Owner',
+        name: 'Daniel',
         pinHash: _hashPin('1234'),
         role: const Value('owner'),
       ),

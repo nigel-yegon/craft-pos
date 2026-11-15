@@ -27,8 +27,6 @@ class _AppState extends State<App> {
   @override
   void initState() {
     super.initState();
-    // Kick off router construction immediately so it's ready by the time
-    // the splash animation finishes. Runs in parallel with the splash.
     _routerFuture = createAppRouter(
       widget.database,
       initialLocation: widget.initialRoute,
@@ -41,7 +39,6 @@ class _AppState extends State<App> {
 
   @override
   Widget build(BuildContext context) {
-    // ═══ PHASE 1 — Splash ═══
     if (_showSplash) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -50,10 +47,6 @@ class _AppState extends State<App> {
       );
     }
 
-    // ═══ PHASE 2 — Main app ═══
-    // The router future was started in initState, so by the time we get
-    // here it's almost always resolved. If not (slow device / DB restore),
-    // the brief spinner below covers the last frame or two.
     return FutureBuilder<GoRouter>(
       future: _routerFuture,
       builder: (context, snapshot) {
@@ -64,7 +57,8 @@ class _AppState extends State<App> {
             home: const Scaffold(
               backgroundColor: Colors.white,
               body: Center(
-                child: CircularProgressIndicator(color: AppTheme.heroGreen),
+                child:
+                CircularProgressIndicator(color: AppTheme.heroGreen),
               ),
             ),
           );

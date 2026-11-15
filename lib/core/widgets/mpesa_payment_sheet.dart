@@ -1,3 +1,5 @@
+// lib/core/widgets/mpesa_payment_sheet.dart
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,14 +50,12 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
     final db = ref.read(databaseProvider);
     final subs = SubscriptionService(db);
 
-    // ⭐ Use an explicit StreamSubscription so we can cancel on any terminal
-    //    state and don't rely on `return` inside `await for` (which leaves
-    //    the stream open until the generator yields or closes).
+    // Explicit StreamSubscription so we can cancel on any terminal state.
     StreamSubscription<PaymentStatus>? sub;
     bool popped = false;
 
-    // ⭐ Guarded pop — call exactly once, from whichever path hits terminal
-    //    state first. Prevents "cannot pop during dispose" races.
+    // Guarded pop — call exactly once, from whichever path hits a
+    // terminal state first. Prevents double-pop and pop-after-dispose.
     void popOnce(bool? result) {
       if (popped || !mounted) return;
       popped = true;
@@ -99,7 +99,8 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
 
           setState(() {
             _status = s;
-            if (s.state == PaymentState.awaitingPin && _uiTimer == null) {
+            if (s.state == PaymentState.awaitingPin &&
+                _uiTimer == null) {
               _startPollingCountdown();
             }
           });
@@ -121,9 +122,8 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
           }
 
           if (s.state == PaymentState.success) {
-            // ⭐ Persist first, then pop. Persistence is what activates the
-            //    subscription — but we do it with a timeout so a slow DB
-            //    can't keep the sheet open indefinitely.
+            // Persist first, then pop. Persistence activates the
+            // subscription — timeout so a slow DB can't stall the pop.
             try {
               await subs
                   .recordAttempt(
@@ -188,8 +188,8 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
             } catch (e) {
               debugPrint('recordAttempt(timeout) failed: $e');
             }
-            // ⭐ null = "still pending" — the screen shows the pending banner
-            //    and the reconciler finishes the job.
+            // null = "still pending" — the screen shows the pending
+            // banner and the reconciler finishes the job.
             popOnce(null);
             if (!completer.isCompleted) completer.complete();
             await sub?.cancel();
@@ -228,18 +228,14 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
         popOnce(false);
       }
     } finally {
-      // ⭐ Always cancel the stream + countdown and clear _busy, no matter
-      //    which path we exited through. This is what was missing before.
+      // Always clean up: cancel the stream, stop the countdown, clear busy.
       await sub?.cancel();
       _uiTimer?.cancel();
       _uiTimer = null;
-      if (mounted && !popped) {
-        setState(() => _busy = false);
-      } else if (mounted) {
-        setState(() => _busy = false);
-      }
+      if (mounted) setState(() => _busy = false);
     }
   }
+
   void _startPollingCountdown() {
     _uiTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
@@ -265,7 +261,12 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
         left: 24,
         right: 24,
         top: 24,
-        bottom: 24 + MediaQuery.of(context).viewInsets.bottom + AppTheme.navClearance,
+        // ⭐ AppTheme.navClearance keeps the sheet's content above the
+        //    floating nav pill even in edge cases where the modal-hide-nav
+        //    mechanism hasn't kicked in yet.
+        bottom: 24 +
+            MediaQuery.of(context).viewInsets.bottom +
+            AppTheme.navClearance,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -292,7 +293,8 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
           else ...[
             Text(
               '${widget.plan.title} • KSh ${widget.plan.amountKes}',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -346,18 +348,19 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed:
-                (_busy &&
+                onPressed: (_busy &&
                     _status.state != PaymentState.timeout &&
                     _status.state != PaymentState.failed)
                     ? null
                     : _startPayment,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _status.state == PaymentState.timeout ||
+                  backgroundColor:
+                  _status.state == PaymentState.timeout ||
                       _status.state == PaymentState.failed
                       ? AppTheme.inkBlack
                       : AppTheme.brightGreen,
-                  foregroundColor: _status.state == PaymentState.timeout ||
+                  foregroundColor:
+                  _status.state == PaymentState.timeout ||
                       _status.state == PaymentState.failed
                       ? Colors.white
                       : AppTheme.inkBlack,
@@ -369,14 +372,16 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
                     ? const SizedBox(
                   height: 20,
                   width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child:
+                  CircularProgressIndicator(strokeWidth: 2),
                 )
                     : Text(
                   _status.state == PaymentState.timeout ||
                       _status.state == PaymentState.failed
                       ? 'Try Again'
                       : 'Send STK Push',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -392,7 +397,8 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
       decoration: BoxDecoration(
         color: AppTheme.brightGreen.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.brightGreen.withValues(alpha: 0.3)),
+        border: Border.all(
+            color: AppTheme.brightGreen.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -417,7 +423,8 @@ class _MpesaPaymentSheetState extends ConsumerState<MpesaPaymentSheet> {
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: _secondsRemaining / 90,
-              backgroundColor: AppTheme.brightGreen.withValues(alpha: 0.2),
+              backgroundColor:
+              AppTheme.brightGreen.withValues(alpha: 0.2),
               color: AppTheme.heroGreen,
               minHeight: 6,
             ),
