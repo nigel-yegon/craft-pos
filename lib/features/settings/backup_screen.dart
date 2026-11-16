@@ -1,11 +1,21 @@
+// lib/features/settings/backup_screen.dart
+
 import 'dart:convert';
+
 import 'package:crypto/crypto.dart';
+import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/database/app_database.dart';
+import '../../core/providers/business_provider.dart';
+import '../../core/providers/cloud_backup_provider.dart';
 import '../../core/providers/database_provider.dart';
+import '../../core/providers/trial_provider.dart';
+import '../../core/services/cloud_backup_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/backup_helper.dart';
 
@@ -19,6 +29,24 @@ class BackupScreen extends ConsumerStatefulWidget {
 class _BackupScreenState extends ConsumerState<BackupScreen> {
   bool _isProcessing = false;
   DateTime? _lastBackupDate;
+
+  // Cloud backup state
+  bool _cloudUploading = false;
+  bool _cloudLoading = false;
+  List<CloudBackup> _cloudBackups = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // Load cloud backups on first open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshCloudBackups();
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // LOCAL EXPORTS
+  // ═══════════════════════════════════════════════════════════════════
 
   Future<void> _handleDbExport() async {
     setState(() => _isProcessing = true);
@@ -77,6 +105,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // LOCAL RESTORE
+  // ═══════════════════════════════════════════════════════════════════
+
   Future<void> _handleRestore() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -120,27 +152,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     setState(() => _isProcessing = false);
 
     if (success) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: Colors.white,
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: const Text('Restore Staged',
-              style: TextStyle(color: AppTheme.inkBlack)),
-          content: const Text(
-            'Your backup has been staged. Please completely close and restart the app to apply the restored data.',
-            style: TextStyle(color: AppTheme.onLightSecondary),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
+      _showRestoreStagedDialog();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -151,17 +163,167 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     }
   }
 
-  void _handleCloudBackup() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Cloud sync will be available in a future update.'),
-        backgroundColor: AppTheme.midnightViolet,
+  void _showRestoreStagedDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Restore Staged',
+            style: TextStyle(color: AppTheme.inkBlack)),
+        content: const Text(
+          'Your backup has been staged. Please completely close and restart the app to apply the restored data.',
+          style: TextStyle(color: AppTheme.onLightSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }
 
-  /// Verifies the entered PIN against the users table.
-  /// ⚠️ The salt must match `AuthProvider._hashPin`.
+  // ═══════════════════════════════════════════════════════════════════
+  // CLOUD BACKUP
+  // ═══════════════════════════════════════════════════════════════════
+
+  Future<void> _refreshCloudBackups() async {
+    final business = ref.read(currentBusinessProvider).value;
+    if (business == null) {
+      debugPrint('☁️ [cloud] no business yet, skipping refresh');
+      return;
+    }
+
+    setState(() => _cloudLoading = true);
+    try {
+      final backups = await ref.read(cloudBackupServiceProvider).list();
+      if (!mounted) return;
+      setState(() {
+        _cloudBackups = backups;
+        _cloudLoading = false;
+      });
+      debugPrint('☁️ [cloud] loaded ${backups.length} backups');
+    } catch (e) {
+      debugPrint('☁️ [cloud] refresh failed: $e');
+      if (!mounted) return;
+      setState(() => _cloudLoading = false);
+    }
+  }
+
+  Future<void> _uploadToCloud() async {
+    final business = ref.read(currentBusinessProvider).value;
+    if (business == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Complete shop setup first'),
+          backgroundColor: AppTheme.burntOrange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _cloudUploading = true);
+    try {
+      final id = await ref
+          .read(cloudBackupServiceProvider)
+          .upload(databaseName: 'craft_pos.sqlite');
+      if (!mounted) return;
+      setState(() => _cloudUploading = false);
+
+      if (id != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Backup uploaded to cloud'),
+            backgroundColor: AppTheme.heroGreen,
+          ),
+        );
+        await _refreshCloudBackups();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Upload failed — check your connection'),
+            backgroundColor: AppTheme.burntOrange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _cloudUploading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Upload failed: $e'),
+          backgroundColor: AppTheme.burntOrange,
+        ),
+      );
+    }
+  }
+
+  Future<void> _restoreFromCloud(CloudBackup backup) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text(
+          'Restore from cloud?',
+          style: TextStyle(
+              fontWeight: FontWeight.w700, color: AppTheme.inkBlack),
+        ),
+        content: Text(
+          'This will download the backup from '
+              '${DateFormat('dd MMM yyyy, HH:mm').format(backup.createdAt)} '
+              '(${backup.displaySize}) and stage it for restore. '
+              'You will need to restart the app for changes to apply.',
+          style: const TextStyle(color: AppTheme.onLightSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.burntOrange),
+            child: const Text('Restore',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isProcessing = true);
+
+    final ok = await ref
+        .read(cloudBackupServiceProvider)
+        .downloadAndStage(backup.id);
+
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+
+    if (ok) {
+      _showRestoreStagedDialog();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Download failed — check your connection'),
+          backgroundColor: AppTheme.burntOrange,
+        ),
+      );
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // RESET
+  // ═══════════════════════════════════════════════════════════════════
+
   Future<bool> _verifyShopPin(String pin) async {
     try {
       final db = ref.read(databaseProvider);
@@ -176,7 +338,6 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     }
   }
 
-  // ⭐ PIN-verified reset flow — uses _ResetPinDialog to own the controller.
   Future<void> _handleResetShop() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -188,7 +349,6 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
     if (confirmed != true || !mounted) return;
 
-    // Blocking spinner while the wipe runs.
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -217,6 +377,58 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       );
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // DEBUG — trial backdate helper
+  // ═══════════════════════════════════════════════════════════════════
+
+  Future<void> _backdateTrial({required int days}) async {
+    try {
+      final db = ref.read(databaseProvider);
+      final business = ref.read(currentBusinessProvider).value;
+      if (business == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No business — complete setup first')),
+        );
+        return;
+      }
+
+      final targetDate = days == 0
+          ? DateTime.now()
+          : DateTime.now().subtract(Duration(days: days));
+
+      await (db.update(db.businesses)
+        ..where((b) => b.id.equals(business.id)))
+          .write(
+        BusinessesCompanion(trialStartedAt: Value(targetDate)),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            days == 0
+                ? 'Trial reset — starts now'
+                : 'Trial backdated $days days — expiring now',
+          ),
+          backgroundColor: AppTheme.heroGreen,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update trial: $e'),
+          backgroundColor: AppTheme.burntOrange,
+        ),
+      );
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // BUILD
+  // ═══════════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
@@ -247,7 +459,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Your data is stored locally on this device. Export a backup regularly to prevent data loss if your phone is lost or stolen.',
+              'Your data is stored locally on this device. Export a backup regularly or use Cloud Backup to protect against phone loss.',
               style: TextStyle(
                 fontSize: 14,
                 color: AppTheme.onLightMuted,
@@ -308,9 +520,14 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
             const SizedBox(height: 24),
 
-            // ═══ RESTORE ═══
+            // ═══ CLOUD BACKUP ═══
+            _buildCloudSection(),
+
+            const SizedBox(height: 24),
+
+            // ═══ RESTORE FROM FILE ═══
             _buildSectionCard(
-              title: 'Restore Data',
+              title: 'Restore from File',
               icon: Icons.upload_file_outlined,
               iconColor: AppTheme.burntOrange,
               children: [
@@ -336,91 +553,6 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   ),
                 ),
               ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // ═══ CLOUD BACKUP ═══
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppTheme.inkBlack.withValues(alpha: 0.08),
-                  width: 1,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppTheme.midnightViolet
-                                  .withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.cloud_outlined,
-                                color: AppTheme.midnightViolet, size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'Cloud Backup',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.inkBlack,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.midnightViolet,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const Text(
-                          'COMING SOON',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Automatically sync your data to the cloud for real-time protection and easy migration to new devices.',
-                    style: TextStyle(
-                        fontSize: 13, color: AppTheme.onLightSecondary),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: _handleCloudBackup,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.midnightViolet,
-                        side: const BorderSide(
-                            color: AppTheme.midnightViolet),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text('Notify Me'),
-                    ),
-                  ),
-                ],
-              ),
             ),
 
             const SizedBox(height: 32),
@@ -453,6 +585,156 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                 ],
               ),
             ),
+
+            // ═══ TRIAL STATUS (debug only) ═══
+            if (kDebugMode) ...[
+              const SizedBox(height: 32),
+              const Padding(
+                padding: EdgeInsets.only(left: 4, bottom: 8),
+                child: Text(
+                  'TRIAL (DEBUG)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                    color: AppTheme.heroGreen,
+                  ),
+                ),
+              ),
+              Consumer(
+                builder: (context, ref, _) {
+                  final trial = ref.watch(trialStatusProvider);
+                  final business = ref.watch(currentBusinessProvider).value;
+                  final trialStart = business?.trialStartedAt;
+
+                  final statusLabel = switch (trial.status) {
+                    TrialStatus.active => 'Active',
+                    TrialStatus.expired => 'Expired',
+                    TrialStatus.subscribed => 'Subscribed',
+                    TrialStatus.unknown => 'Unknown',
+                  };
+
+                  final statusColor = switch (trial.status) {
+                    TrialStatus.active => AppTheme.heroGreen,
+                    TrialStatus.expired => AppTheme.burntOrange,
+                    TrialStatus.subscribed => AppTheme.midGreen,
+                    TrialStatus.unknown => AppTheme.onLightMuted,
+                  };
+
+                  return _buildSectionCard(
+                    title: 'Trial Status',
+                    icon: Icons.timer_outlined,
+                    iconColor: AppTheme.heroGreen,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                  color: statusColor.withValues(alpha: 0.3)),
+                            ),
+                            child: Text(
+                              statusLabel,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: statusColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          if (trial.status == TrialStatus.active)
+                            Text(
+                              '${trial.daysRemaining} day(s) remaining',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.inkBlack,
+                              ),
+                            ),
+                          if (trial.status == TrialStatus.subscribed)
+                            const Text(
+                              'Full access',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.inkBlack,
+                              ),
+                            ),
+                          if (trial.status == TrialStatus.expired)
+                            const Text(
+                              'Trial has ended',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.inkBlack,
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (trialStart != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Started: ${DateFormat('dd MMM yyyy, HH:mm').format(trialStart)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.onLightMuted,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Debug tools — expire the trial to test the lock screen.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.onLightMuted,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _backdateTrial(days: 8),
+                              icon: const Icon(Icons.lock_clock, size: 16),
+                              label: const Text('Expire Trial'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.burntOrange,
+                                side: const BorderSide(
+                                    color: AppTheme.burntOrange),
+                                padding:
+                                const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _backdateTrial(days: 0),
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: const Text('Reset Trial'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.heroGreen,
+                                side: const BorderSide(
+                                    color: AppTheme.heroGreen),
+                                padding:
+                                const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+            ],
 
             // ═══ RESET SHOP (danger zone) ═══
             const SizedBox(height: 32),
@@ -537,6 +819,167 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // CLOUD BACKUP SECTION
+  // ═══════════════════════════════════════════════════════════════════
+
+  Widget _buildCloudSection() {
+    return _buildSectionCard(
+      title: 'Cloud Backup',
+      icon: Icons.cloud_outlined,
+      iconColor: AppTheme.midnightViolet,
+      children: [
+        const Text(
+          'Save a snapshot of your data to the cloud. Restore it anytime from any device.',
+          style: TextStyle(fontSize: 13, color: AppTheme.onLightSecondary),
+        ),
+        const SizedBox(height: 16),
+
+        // Upload button
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _cloudUploading ? null : _uploadToCloud,
+            icon: _cloudUploading
+                ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+                : const Icon(Icons.cloud_upload_outlined, size: 18),
+            label: Text(_cloudUploading ? 'Uploading…' : 'Backup to cloud'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.midnightViolet,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Section header with refresh
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Recent cloud backups',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.inkBlack,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _cloudLoading ? null : _refreshCloudBackups,
+              icon: const Icon(Icons.refresh, size: 14),
+              label: const Text(
+                'Refresh',
+                style: TextStyle(fontSize: 12),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.midnightViolet,
+              ),
+            ),
+          ],
+        ),
+
+        // Backup list
+        if (_cloudLoading)
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.midnightViolet,
+                ),
+              ),
+            ),
+          )
+        else if (_cloudBackups.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'No cloud backups yet. Tap "Backup to cloud" to create one.',
+              style: TextStyle(fontSize: 12, color: AppTheme.onLightMuted),
+            ),
+          )
+        else
+          ..._cloudBackups.map(
+                (b) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.midnightViolet.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppTheme.midnightViolet.withValues(alpha: 0.15),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.cloud_done_outlined,
+                    color: AppTheme.midnightViolet,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          DateFormat('dd MMM yyyy, HH:mm')
+                              .format(b.createdAt),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.inkBlack,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          b.displaySize,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.onLightMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _isProcessing
+                        ? null
+                        : () => _restoreFromCloud(b),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.burntOrange,
+                    ),
+                    child: const Text(
+                      'Restore',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // SHARED WIDGETS
+  // ═══════════════════════════════════════════════════════════════════
+
   Widget _buildSectionCard({
     required String title,
     required IconData icon,
@@ -584,7 +1027,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// RESET PIN DIALOG (owns its TextEditingController)
+// RESET PIN DIALOG
 // ═══════════════════════════════════════════════════════════════════
 
 class _ResetPinDialog extends StatefulWidget {

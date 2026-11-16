@@ -13,6 +13,9 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/database_provider.dart';
 import '../../core/theme/app_theme.dart';
 
+import 'dart:async';   // for unawaited()
+import '../../core/services/business_registration_service.dart';
+
 class BusinessSetupScreen extends ConsumerStatefulWidget {
   const BusinessSetupScreen({super.key});
 
@@ -137,6 +140,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
             email: Value(_optionalValue(_emailController.text)),
             address: Value(_optionalValue(_addressController.text)),
             currency: Value(_currency),
+            trialStartedAt: Value(DateTime.now()),
           ),
         );
 
@@ -164,6 +168,25 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
       );
 
       if (!mounted) return;
+
+      // ⭐ Auto-login the owner
+      await ref.read(authProvider).login(
+        _ownerNameController.text.trim(),
+        pin,
+      );
+
+      if (!mounted) return;
+
+      // ⭐ Register the shop with the server so admin can send notifications.
+      //    Fire-and-forget — never blocks the user's entry to the app.
+      unawaited(
+        BusinessRegistrationService.register(
+          id: businessId,
+          name: _nameController.text.trim(),
+          phone: _optionalValue(_phoneController.text),
+          email: _optionalValue(_emailController.text),
+        ),
+      );
 
       // ⭐ Route directly to dashboard
       context.go('/dashboard');

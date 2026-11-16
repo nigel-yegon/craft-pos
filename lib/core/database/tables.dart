@@ -9,6 +9,7 @@ class Businesses extends Table {
   TextColumn get imagePath => text().nullable()();   // ⭐ single definition
   TextColumn get currency => text().withDefault(const Constant('KES'))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get trialStartedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
   Set<Column> get primaryKey => {id};

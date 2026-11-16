@@ -559,7 +559,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: AppTheme.navClearance),
         child: FloatingActionButton(
-          child: const Icon(Icons.add),
           backgroundColor: AppTheme.brightGreen,
           foregroundColor: AppTheme.inkBlack,
           onPressed: () => Navigator.push(
@@ -568,6 +567,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               builder: (_) => ProductFormScreen(provider: widget.provider),
             ),
           ),
+          child: const Icon(Icons.add),
         ),
       ),
     );

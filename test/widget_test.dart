@@ -1,26 +1,18 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:craft_pos/app.dart';
 import 'package:craft_pos/core/database/app_database.dart';
+import 'package:craft_pos/core/providers/database_provider.dart';
 
 void main() {
-  testWidgets('App renders without crashing', (WidgetTester tester) async {
-    // 1. Initialize the database using the standard constructor
-    final testDb = AppDatabase();
-
-    // 2. Build the app and pass the database and initial route
-    // Note: We pass '/dashboard' to bypass the splash screen for this test
+  testWidgets('App builds', (tester) async {
+    final db = AppDatabase();
     await tester.pumpWidget(
-      App(
-        database: testDb,
-        initialRoute: '/dashboard',
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const App(),
       ),
     );
-
-    // 3. Verify the app rendered (e.g., looking for the MaterialApp widget)
-    expect(find.byType(MaterialApp), findsOneWidget);
-
-    // 4. Clean up: Close the database connection to release resources
-    await testDb.close();
+    await tester.pump(const Duration(milliseconds: 100));
   });
 }

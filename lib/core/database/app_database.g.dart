@@ -91,6 +91,19 @@ class $BusinessesTable extends Businesses
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _trialStartedAtMeta = const VerificationMeta(
+    'trialStartedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> trialStartedAt =
+      GeneratedColumn<DateTime>(
+        'trial_started_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+        defaultValue: currentDateAndTime,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -101,6 +114,7 @@ class $BusinessesTable extends Businesses
     imagePath,
     currency,
     createdAt,
+    trialStartedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -163,6 +177,15 @@ class $BusinessesTable extends Businesses
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('trial_started_at')) {
+      context.handle(
+        _trialStartedAtMeta,
+        trialStartedAt.isAcceptableOrUnknown(
+          data['trial_started_at']!,
+          _trialStartedAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -208,6 +231,11 @@ class $BusinessesTable extends Businesses
             DriftSqlType.dateTime,
             data['${effectivePrefix}created_at'],
           )!,
+      trialStartedAt:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.dateTime,
+            data['${effectivePrefix}trial_started_at'],
+          )!,
     );
   }
 
@@ -226,6 +254,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
   final String? imagePath;
   final String currency;
   final DateTime createdAt;
+  final DateTime trialStartedAt;
   const BusinessesData({
     required this.id,
     required this.name,
@@ -235,6 +264,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
     this.imagePath,
     required this.currency,
     required this.createdAt,
+    required this.trialStartedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -255,6 +285,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
     }
     map['currency'] = Variable<String>(currency);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['trial_started_at'] = Variable<DateTime>(trialStartedAt);
     return map;
   }
 
@@ -276,6 +307,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
               : Value(imagePath),
       currency: Value(currency),
       createdAt: Value(createdAt),
+      trialStartedAt: Value(trialStartedAt),
     );
   }
 
@@ -293,6 +325,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
       imagePath: serializer.fromJson<String?>(json['imagePath']),
       currency: serializer.fromJson<String>(json['currency']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      trialStartedAt: serializer.fromJson<DateTime>(json['trialStartedAt']),
     );
   }
   @override
@@ -307,6 +340,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
       'imagePath': serializer.toJson<String?>(imagePath),
       'currency': serializer.toJson<String>(currency),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'trialStartedAt': serializer.toJson<DateTime>(trialStartedAt),
     };
   }
 
@@ -319,6 +353,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
     Value<String?> imagePath = const Value.absent(),
     String? currency,
     DateTime? createdAt,
+    DateTime? trialStartedAt,
   }) => BusinessesData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -328,6 +363,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
     imagePath: imagePath.present ? imagePath.value : this.imagePath,
     currency: currency ?? this.currency,
     createdAt: createdAt ?? this.createdAt,
+    trialStartedAt: trialStartedAt ?? this.trialStartedAt,
   );
   BusinessesData copyWithCompanion(BusinessesCompanion data) {
     return BusinessesData(
@@ -339,6 +375,10 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
       imagePath: data.imagePath.present ? data.imagePath.value : this.imagePath,
       currency: data.currency.present ? data.currency.value : this.currency,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      trialStartedAt:
+          data.trialStartedAt.present
+              ? data.trialStartedAt.value
+              : this.trialStartedAt,
     );
   }
 
@@ -352,7 +392,8 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
           ..write('address: $address, ')
           ..write('imagePath: $imagePath, ')
           ..write('currency: $currency, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('trialStartedAt: $trialStartedAt')
           ..write(')'))
         .toString();
   }
@@ -367,6 +408,7 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
     imagePath,
     currency,
     createdAt,
+    trialStartedAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -379,7 +421,8 @@ class BusinessesData extends DataClass implements Insertable<BusinessesData> {
           other.address == this.address &&
           other.imagePath == this.imagePath &&
           other.currency == this.currency &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.trialStartedAt == this.trialStartedAt);
 }
 
 class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
@@ -391,6 +434,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
   final Value<String?> imagePath;
   final Value<String> currency;
   final Value<DateTime> createdAt;
+  final Value<DateTime> trialStartedAt;
   final Value<int> rowid;
   const BusinessesCompanion({
     this.id = const Value.absent(),
@@ -401,6 +445,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
     this.imagePath = const Value.absent(),
     this.currency = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.trialStartedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   BusinessesCompanion.insert({
@@ -412,6 +457,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
     this.imagePath = const Value.absent(),
     this.currency = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.trialStartedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name);
@@ -424,6 +470,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
     Expression<String>? imagePath,
     Expression<String>? currency,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? trialStartedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -435,6 +482,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
       if (imagePath != null) 'image_path': imagePath,
       if (currency != null) 'currency': currency,
       if (createdAt != null) 'created_at': createdAt,
+      if (trialStartedAt != null) 'trial_started_at': trialStartedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -448,6 +496,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
     Value<String?>? imagePath,
     Value<String>? currency,
     Value<DateTime>? createdAt,
+    Value<DateTime>? trialStartedAt,
     Value<int>? rowid,
   }) {
     return BusinessesCompanion(
@@ -459,6 +508,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
       imagePath: imagePath ?? this.imagePath,
       currency: currency ?? this.currency,
       createdAt: createdAt ?? this.createdAt,
+      trialStartedAt: trialStartedAt ?? this.trialStartedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -490,6 +540,9 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (trialStartedAt.present) {
+      map['trial_started_at'] = Variable<DateTime>(trialStartedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -507,6 +560,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessesData> {
           ..write('imagePath: $imagePath, ')
           ..write('currency: $currency, ')
           ..write('createdAt: $createdAt, ')
+          ..write('trialStartedAt: $trialStartedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7835,6 +7889,7 @@ typedef $$BusinessesTableCreateCompanionBuilder =
       Value<String?> imagePath,
       Value<String> currency,
       Value<DateTime> createdAt,
+      Value<DateTime> trialStartedAt,
       Value<int> rowid,
     });
 typedef $$BusinessesTableUpdateCompanionBuilder =
@@ -7847,6 +7902,7 @@ typedef $$BusinessesTableUpdateCompanionBuilder =
       Value<String?> imagePath,
       Value<String> currency,
       Value<DateTime> createdAt,
+      Value<DateTime> trialStartedAt,
       Value<int> rowid,
     });
 
@@ -8070,6 +8126,11 @@ class $$BusinessesTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get trialStartedAt => $composableBuilder(
+    column: $table.trialStartedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8347,6 +8408,11 @@ class $$BusinessesTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get trialStartedAt => $composableBuilder(
+    column: $table.trialStartedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$BusinessesTableAnnotationComposer
@@ -8381,6 +8447,11 @@ class $$BusinessesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get trialStartedAt => $composableBuilder(
+    column: $table.trialStartedAt,
+    builder: (column) => column,
+  );
 
   Expression<T> categoriesRefs<T extends Object>(
     Expression<T> Function($$CategoriesTableAnnotationComposer a) f,
@@ -8655,6 +8726,7 @@ class $$BusinessesTableTableManager
                 Value<String?> imagePath = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> trialStartedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BusinessesCompanion(
                 id: id,
@@ -8665,6 +8737,7 @@ class $$BusinessesTableTableManager
                 imagePath: imagePath,
                 currency: currency,
                 createdAt: createdAt,
+                trialStartedAt: trialStartedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8677,6 +8750,7 @@ class $$BusinessesTableTableManager
                 Value<String?> imagePath = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> trialStartedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BusinessesCompanion.insert(
                 id: id,
@@ -8687,6 +8761,7 @@ class $$BusinessesTableTableManager
                 imagePath: imagePath,
                 currency: currency,
                 createdAt: createdAt,
+                trialStartedAt: trialStartedAt,
                 rowid: rowid,
               ),
           withReferenceMapper:

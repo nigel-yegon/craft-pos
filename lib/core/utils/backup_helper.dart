@@ -20,7 +20,8 @@ class BackupHelper {
       if (!await dbFile.exists()) throw Exception("Database file not found.");
 
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-      final backupPath = p.join(dbFolder.path, 'craft_pos_backup_$timestamp.db');
+      final backupPath = p.join(
+          dbFolder.path, 'craft_pos_backup_$timestamp.db');
       final backupFile = await dbFile.copy(backupPath);
 
       await SharePlus.instance.share(
@@ -66,7 +67,8 @@ class BackupHelper {
 
       // ── Sheet 2: Products ──
       rows.add(['--- INVENTORY REPORT ---']);
-      rows.add(['Product Name', 'SKU', 'Cost Price (KSh)', 'Selling Price (KSh)']);
+      rows.add(
+          ['Product Name', 'SKU', 'Cost Price (KSh)', 'Selling Price (KSh)']);
 
       final products = await (db.select(db.products)
         ..where((pr) => pr.businessId.equals(businessId)))
@@ -128,23 +130,25 @@ class BackupHelper {
   /// Picks a .db file and stages it to replace the current DB on next launch.
   static Future<bool> stageDatabaseRestore() async {
     try {
-      // ⭐ Fixed: Instantiate FilePicker
-
       final result = await FilePicker.pickFiles(
         type: FileType.any,
       );
 
-      if (result == null || result.isEmpty || result.first.path == null) return false;
+      if (result.isEmpty) return false;
 
-      final selectedFile = File(result.first.path!);
+      final picked = result.first;
+      final selectedFile = File(picked.path!);
 
       // Basic validation (we expect a SQLite database)
-      if (!selectedFile.path.endsWith('.db') && !selectedFile.path.endsWith('.sqlite')) {
+      if (!selectedFile.path.endsWith('.db') &&
+          !selectedFile.path.endsWith('.sqlite')) {
         throw Exception("Please select a valid .db or .sqlite backup file.");
       }
 
       final dbFolder = await getApplicationDocumentsDirectory();
-      final stagedFile = File(p.join(dbFolder.path, 'craft_pos_restore_pending.sqlite'));
+      final stagedFile = File(
+        p.join(dbFolder.path, 'craft_pos_restore_pending.sqlite'),
+      );
 
       // Copy the selected file to a staged location
       await selectedFile.copy(stagedFile.path);

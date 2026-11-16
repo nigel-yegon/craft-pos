@@ -1,23 +1,24 @@
 // lib/core/router/app_router.dart
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../features/onboarding/splash_screens.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/database/app_database.dart';
-import '../../core/providers/auth_provider.dart';
-import '../../core/providers/business_provider.dart';
-import '../../core/providers/category_provider.dart';
-import '../../core/providers/expense_provider.dart';
-import '../../core/providers/product_provider.dart';
-import '../../core/providers/report_provider.dart';
-import '../../core/providers/sales_provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/business_provider.dart';
+import '../providers/category_provider.dart';
+import '../providers/database_provider.dart';
+import '../providers/expense_provider.dart';
+import '../providers/product_provider.dart';
+import '../providers/report_provider.dart';
+import '../providers/sales_provider.dart';
+import '../providers/trial_provider.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/business/business_setup_screen.dart';
-// ⭐ show clauses added to prevent ambiguous imports if files get copy-pasted again
 import '../../features/dashboard/dashboard_screen.dart' show DashboardScreen;
 import '../../features/inventory/inventory_screen.dart';
 import '../../features/inventory/stock_report_screen.dart';
+import '../../features/onboarding/splash_screens.dart';
+import '../../features/onboarding/trial_expired_screen.dart'; // ⭐ NEW
 import '../../features/profile/profile_screen.dart';
 import '../../features/products/products_screen.dart';
 import '../../features/reports/reports_screen.dart';
@@ -32,15 +33,23 @@ import '../../features/settings/settings_screen.dart';
 import '../../features/settings/subscription_screen.dart' show SubscriptionScreen;
 import '../../shared/widgets/app_shell.dart';
 
-Future<GoRouter> createAppRouter(
-    AppDatabase db, {
-      String initialLocation = '/dashboard',
-    }) async {
-  final businesses = await (db.select(db.businesses)).get();
-  final businessId =
-  businesses.isNotEmpty ? businesses.first.id : 'default-business-id';
+/// Riverpod Provider that builds the router.
+///
+/// Watches auth + business + trial state so the router re-evaluates the
+/// redirect closure whenever any of those change (login, logout, setup
+/// completion, subscription activation).
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final auth = ref.watch(authProvider);
+  final businessAsync = ref.watch(currentBusinessProvider);
+  final trial = ref.watch(trialStatusProvider);
 
-  final authProvider = AuthProvider(db, businessId);
+  final db = ref.watch(databaseProvider);
+  final business = businessAsync.value;
+  final businessId = business?.id ?? 'default-business-id';
+
+  // These providers are still manually constructed to match the old
+  // screen constructors. They rebuild whenever the router rebuilds
+  // (i.e., when auth / business / trial state changes).
   final productProvider = ProductProvider(db, businessId);
   final categoryProvider = CategoryProvider(db, businessId);
   final salesProvider = SalesProvider(db, businessId);
@@ -49,47 +58,81 @@ Future<GoRouter> createAppRouter(
   final expenseProvider = ExpenseProvider(db, businessId);
 
   return GoRouter(
-    initialLocation: initialLocation,
+    initialLocation: '/splash',
     redirect: (context, state) {
-      final isLoggedIn = authProvider.isLoggedIn;
+      final isGoingToSplash = state.matchedLocation == '/splash';
       final isGoingToLogin = state.matchedLocation == '/login';
       final isGoingToSetup = state.matchedLocation == '/setup';
+      final isGoingToTrialExpired =
+          state.matchedLocation == '/trial-expired';
+      final isGoingToSubscription =
+      state.matchedLocation.startsWith('/settings/subscription');
 
-      if (!isLoggedIn && !isGoingToLogin && !isGoingToSetup) {
-        return '/login';
+      // 1. Wait for business stream to resolve.
+      if (businessAsync.isLoading) {
+        return isGoingToSplash ? null : '/splash';
       }
-      if (isLoggedIn && isGoingToLogin) {
+
+      final hasBusiness = businessAsync.value != null;
+      final isLoggedIn = auth.isLoggedIn;
+
+      // 2. No business → setup.
+      if (!hasBusiness) {
+        return isGoingToSetup ? null : '/setup';
+      }
+
+      // 3. Business exists but user isn't logged in → login.
+      if (!isLoggedIn) {
+        return isGoingToLogin ? null : '/login';
+      }
+
+      // 4. ⭐ Trial hard-lock: expired + no subscription = locked.
+      if (trial.isLocked) {
+        if (!isGoingToTrialExpired && !isGoingToSubscription) {
+          return '/trial-expired';
+        }
+        return null;
+      }
+
+      // 5. Logged in, trying to go to login/setup/splash/trial-expired
+      //    → route to dashboard.
+      if (isLoggedIn &&
+          (isGoingToLogin ||
+              isGoingToSetup ||
+              isGoingToSplash ||
+              isGoingToTrialExpired)) {
         return '/dashboard';
       }
+
       return null;
     },
     routes: [
       GoRoute(
         path: '/splash',
-        builder: (context, state) {
-          return Consumer(
-            builder: (context, ref, _) {
-              final businessAsync = ref.watch(currentBusinessProvider);
-              final hasBusiness = businessAsync.value != null;
-              return SplashScreens(
-                // First run = no business yet
-                isFirstRun: !hasBusiness,
-                onComplete: () {
-                  // Router's redirect will send them to /setup or /login
-                  // once the router rebuilds — nothing to do here.
-                },
-              );
-            },
-          );
-        },
+        builder: (context, state) => Consumer(
+          builder: (context, ref, _) {
+            final businessAsync = ref.watch(currentBusinessProvider);
+            final hasBusiness = businessAsync.value != null;
+            return SplashScreens(
+              isFirstRun: !hasBusiness,
+              onComplete: () {
+                // Redirect handles navigation once state resolves.
+              },
+            );
+          },
+        ),
       ),
       GoRoute(
         path: '/login',
-        builder: (context, state) => LoginScreen(authProvider: authProvider),
+        builder: (context, state) => LoginScreen(authProvider: auth),
       ),
       GoRoute(
         path: '/setup',
         builder: (context, state) => const BusinessSetupScreen(),
+      ),
+      GoRoute(
+        path: '/trial-expired',
+        builder: (context, state) => const TrialExpiredScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
@@ -98,7 +141,7 @@ Future<GoRouter> createAppRouter(
             path: '/dashboard',
             builder: (context, state) => DashboardScreen(
               businessId: businessId,
-              authProvider: authProvider,
+              authProvider: auth,
               businessProvider: businessProvider,
             ),
           ),
@@ -124,7 +167,7 @@ Future<GoRouter> createAppRouter(
                 path: 'aob',
                 builder: (context, state) => AobScreen(
                   businessProvider: businessProvider,
-                  authProvider: authProvider,
+                  authProvider: auth,
                 ),
               ),
               GoRoute(
@@ -191,4 +234,4 @@ Future<GoRouter> createAppRouter(
       ),
     ],
   );
-}
+});

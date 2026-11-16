@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/app_database.dart';
 import '../services/notifications_service.dart';
 import 'database_provider.dart';
+import 'business_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════
 // CONFIGURATION (override at startup if you have a real source)
@@ -13,7 +14,8 @@ import 'database_provider.dart';
 /// Active business for this session. Override at ProviderScope startup
 /// with `currentBusinessIdProvider.overrideWithValue(myBusinessId)`.
 final currentBusinessIdProvider = Provider<String>((ref) {
-  return 'default-business-id';   // used until overridden at startup
+  final business = ref.watch(currentBusinessProvider).value;
+  return business?.id ?? '';
 });
 
 /// Base URL for the Craft Business VPS — same host as M-Pesa.
